@@ -1,0 +1,257 @@
+/* Page-level styles. Every color and font comes from tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 12px;
+}
+h1 {
+  font-size: clamp(34px, 6vw, 48px);
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 24px;
+}
+h3 {
+  font-size: 20px;
+}
+p {
+  margin: 0 0 14px;
+}
+a {
+  color: var(--brand);
+}
+
+.wrap {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* Top bar and footer */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.topbar .wordmark {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.topbar a,
+.footer a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.topbar a:hover,
+.footer a:hover {
+  color: var(--brand);
+  border-bottom-color: currentColor;
+}
+
+.hero {
+  padding: 48px 0 0;
+}
+.lede {
+  font-size: 17px;
+  color: var(--ink);
+  max-width: 60ch;
+}
+
+.footer {
+  padding: 40px var(--gutter) 60px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Small monospace uppercase label above a heading */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin: 0 0 14px;
+}
+
+/* The thin gold divider with a small heartbeat blip, as on the portfolio */
+.signal {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 40px 0;
+}
+.signal path {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Panels */
+.steps {
+  display: grid;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 24px;
+}
+.card p:last-child {
+  margin-bottom: 0;
+}
+.hint {
+  font-size: 14px;
+  color: var(--muted);
+}
+.status {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--brand);
+}
+.error {
+  font-size: 14px;
+  color: var(--warn);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--card);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-button);
+  padding: 10px 18px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.btn:hover {
+  background: var(--brand-hover);
+}
+.btn.secondary {
+  color: var(--brand);
+  background: transparent;
+}
+.btn.secondary:hover {
+  background: var(--brand-tint);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Form fields */
+label.field {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+input[type='password'],
+input[type='text'] {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-button);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.check input {
+  margin-top: 4px;
+  accent-color: var(--brand);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Upload drop area */
+.dropzone {
+  position: relative;
+  display: block;
+  border: 1.5px dashed var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+.dropzone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.dropzone .label {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--brand);
+}
+
+@media (max-width: 520px) {
+  :root {
+    --gutter: 16px;
+  }
+  .card {
+    padding: 18px;
+  }
+}

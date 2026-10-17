@@ -1,0 +1,6 @@
+{
+  // Tells GitHub Codespaces which machine image to use: Node.js 24, matching CI.
+  "name": "Conference Agenda Digest",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24",
+  "forwardPorts": [5173]
+}

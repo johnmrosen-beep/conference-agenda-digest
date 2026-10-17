@@ -1,0 +1,31 @@
+/*
+ * Design tokens: the named colors, fonts and sizes the whole app uses.
+ * Copied from the portfolio site (johnmrosen-beep.github.io) so this app looks like part of it.
+ * To change a color everywhere, change it here once.
+ */
+:root {
+  /* Colors */
+  --paper: #f6f8f7; /* page background: a soft off-white */
+  --card: #ffffff; /* panels that sit on the page */
+  --ink: #12221d; /* main text: near-black with a green tint */
+  --muted: #4e635d; /* secondary text */
+  --brand: #0b5d52; /* deep teal: buttons, links, eyebrow labels */
+  --brand-hover: #084a42;
+  --brand-tint: rgba(11, 93, 82, 0.06); /* faint teal wash for hovers */
+  --signal: #c98a2b; /* gold: the divider line and small accents */
+  --hairline: #d9e2de; /* thin borders */
+  --warn: #9a3412; /* error and caution text */
+
+  /* Fonts */
+  --font-serif: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Shape and spacing */
+  --radius-button: 8px;
+  --radius-card: 10px;
+  --page-width: 760px;
+  --gutter: 24px;
+
+  color-scheme: light;
+}

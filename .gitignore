@@ -2,9 +2,14 @@
 sample-pdfs/
 *.pdf
 
+# Private eval material (real PDFs, their text, golden files, raw model outputs)
+eval/private/
+eval/runs/
+
 # Node / build output
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Local secrets
 .env
