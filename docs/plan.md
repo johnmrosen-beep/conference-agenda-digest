@@ -166,6 +166,29 @@ conference-agenda-digest/
   docs/               plan.md, build-story.md (later)
 ```
 
+### Spend safeguards (requirement: the owner's personal cost must be strictly capped)
+The goal is that no visitor, fork or leaked file can spend the owner's money, and that the owner's own spending has hard limits.
+
+**Built into the design (no setup needed):**
+- **The owner's key never ships anywhere.** It is not in the app, the repo or GitHub Actions. There is no server or proxy. The deployed site has no key it could use on anyone's behalf, so the "malicious visitor" attack has nothing to target. This is a permanent rule: the project never adds a backend that holds the owner's key.
+- **CI never gets a key.** GitHub Actions only builds, type-checks and runs unit tests, none of which call the API. So a pull request from a fork cannot trigger paid calls.
+- **No third-party scripts, plus a strict Content Security Policy.** The page may only send requests to `api.anthropic.com`. This protects keys that people type into the app.
+- **Dependencies are few and pinned** with a lockfile, to reduce the risk of a compromised package.
+- **The key is kept only for the current tab by default.** "Remember on this device" is opt-in, and there is a visible "Forget key" button.
+- **Cost check before every run.** The app counts tokens, shows an estimate, and needs a click to confirm. It also stops partway through if actual spend goes over the estimate by a set margin.
+- **The eval scripts have a hard budget.** They take a `--max-dollars` cap (default $5), estimate cost before starting, refuse to start if the estimate is over the cap, add up the real cost from each response, and stop the moment the total reaches the cap. A `--dry-run` mode shows the estimate without calling the API.
+
+**One-time account settings (done by the owner):**
+- **Anthropic Console:**
+  - Create a dedicated workspace for this project, with a low monthly spend limit (e.g. $10).
+  - Create a separate API key in that workspace.
+  - Load only small amounts of prepaid credit, and keep **auto-reload off**. The credit balance then becomes the worst-case loss.
+  - Delete the key when the eval work is finished.
+- **GitHub:**
+  - Store the key only as a Codespaces secret limited to this one repo, never as an Actions secret.
+  - Keep the Codespaces spending limit at $0, so Codespaces stops at the free allowance instead of charging.
+  - Keep secret scanning and push protection turned on.
+
 ---
 
 ## 4. Evaluation harness (the main learning goal)
