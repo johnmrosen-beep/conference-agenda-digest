@@ -29,8 +29,8 @@ export default function App() {
             PDF.
           </p>
           <p className="hint">
-            Early preview: this is the empty shell. Reading PDFs and building digests arrive in
-            the next milestones.
+            Early preview: the app can read a PDF's text so you can check it. Building the digest
+            from that text arrives in the next milestones.
           </p>
         </header>
 
