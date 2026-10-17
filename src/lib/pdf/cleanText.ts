@@ -143,7 +143,9 @@ export function buildLines(items: RawTextItem[]): { lines: string[]; rotatedDrop
     }
 
     const current: Line | null = line
-    const size = item.size > 0 ? item.size : (current?.size ?? 10)
+    // The type is written out because TypeScript otherwise goes in a circle: `size` comes from
+    // `line`, and `line` is later rebuilt from `size`.
+    const size: number = item.size > 0 ? item.size : (current?.size ?? 10)
     const isMarker = MARKER_TEXT.test(item.str)
     const part: Part = { text: item.str, x: item.x, endX: item.x + item.width, superscript: false }
 
