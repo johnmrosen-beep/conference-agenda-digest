@@ -1,0 +1,11 @@
+# Sample conference PDFs are copyrighted by their publishers — keep them out of the public repo
+sample-pdfs/
+*.pdf
+
+# Node / build output
+node_modules/
+dist/
+
+# Local secrets
+.env
+.env.*
