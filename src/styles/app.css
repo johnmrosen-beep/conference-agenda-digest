@@ -247,6 +247,69 @@ input[type='text'] {
   color: var(--brand);
 }
 
+/* Reading progress and the text preview */
+.reading progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--brand);
+}
+.preview {
+  margin-top: 16px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 16px;
+}
+.cleanup {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.cleanup summary {
+  cursor: pointer;
+  color: var(--brand);
+}
+.cleanup q {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.pager-jump {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.pager-jump input {
+  width: 5.5em;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-button);
+  padding: 6px 8px;
+}
+.page-text {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-button);
+  padding: 14px 16px;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0 0 16px;
+}
+
 @media (max-width: 520px) {
   :root {
     --gutter: 16px;
