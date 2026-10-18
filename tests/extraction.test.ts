@@ -9,6 +9,7 @@ import {
   guessInstitutionType,
   institutionKey,
   mergeDigest,
+  safeSkipPages,
   sessionPageSpans,
   type ChunkResult,
 } from '../src/lib/extraction/merge'
@@ -281,5 +282,12 @@ describe('mergeDigest with imperfect answers', () => {
     expect(digest.presentations).toHaveLength(1)
     expect(digest.presentations[0]!.kind).toBe('poster')
     expect(digest.presentations[0]!.session_id).toBe('session-1')
+  })
+})
+
+describe('safeSkipPages', () => {
+  it('never skips a page that belongs to a session', () => {
+    // The fake outline's poster session covers pages 2-3; Claude wrongly lists page 3 as skippable.
+    expect(safeSkipPages({ ...outline, skip_pages: [3, 5] }, 6)).toEqual([5])
   })
 })

@@ -179,6 +179,20 @@ export function sessionPageSpans(sessions: OutlineSession[], pageCount: number):
   })
 }
 
+/**
+ * The outline's "pages to skip", minus any page inside a session. Claude once listed all 52
+ * pages of a poster session as skippable, which silently lost 300 abstracts; a page that belongs
+ * to a session is always read.
+ */
+export function safeSkipPages(outline: OutlineOutput, pageCount: number): number[] {
+  const inSession = new Set(
+    sessionPageSpans(outline.sessions, pageCount).flatMap((span) =>
+      Array.from({ length: span.last - span.first + 1 }, (_, i) => span.first + i),
+    ),
+  )
+  return outline.skip_pages.filter((page) => !inSession.has(page))
+}
+
 function findSession(item: ChunkPresentation, spans: PageSpan[], sessions: Session[]): Session | null {
   const onPage = spans
     .map((span, i) => ({ span, session: sessions[i]! }))

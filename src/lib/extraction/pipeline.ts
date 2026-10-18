@@ -19,7 +19,7 @@ import {
   SpendGuard,
   type CallRecord,
 } from './claude'
-import { mergeDigest, type ChunkResult } from './merge'
+import { mergeDigest, safeSkipPages, type ChunkResult } from './merge'
 import { ChunkOutput, OutlineOutput } from './modelOutput'
 import { costOfCall, type Effort, type ModelId } from './pricing'
 import { DETAIL_SYSTEM, OUTLINE_SYSTEM, detailUserMessage, outlineUserMessage } from './prompts'
@@ -128,7 +128,8 @@ export async function runExtraction(
   report('outline', 1, 1)
 
   // ---- 2. Details, a few chunks at a time
-  const queue: Chunk[] = makeChunks(doc.pages, { skipPages: outline.skip_pages })
+  const skipPages = safeSkipPages(outline, doc.pages.length)
+  const queue: Chunk[] = makeChunks(doc.pages, { skipPages })
   const results: ChunkResult[] = []
   const failedChunks: FailedChunk[] = []
   let total = queue.length
