@@ -97,6 +97,12 @@ describe('buildLines', () => {
     expect(buildLines([watermark, body])).toEqual({ lines: ['Poster Session I'], rotatedDropped: 1 })
   })
 
+  it('turns an unreadable dash glyph between words back into a dash', () => {
+    expect(buildLines([piece('Marriott Ballroom 9 \ufffd Lobby Level', 72, 700)]).lines).toEqual([
+      'Marriott Ballroom 9 \u2013 Lobby Level',
+    ])
+  })
+
   it('keeps accented characters intact', () => {
     expect(buildLines([piece('León, Guanajuato', 72, 700)]).lines).toEqual(['León, Guanajuato'])
   })

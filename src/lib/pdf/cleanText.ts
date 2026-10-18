@@ -97,8 +97,8 @@ interface Line {
 function tidy(text: string): string {
   return text
     .normalize('NFC')
-    .replace(/[­​-‍﻿]/g, '') // soft hyphens and invisible characters
-    .replace(/[\s ]+/g, ' ')
+    .replace(/[\u00ad\u200b-\u200d\ufeff]/g, '') // soft hyphens and invisible characters
+    .replace(/[\s\u00a0]+/g, ' ')
 }
 
 function renderLine(line: Line): string {
@@ -114,7 +114,9 @@ function renderLine(line: Line): string {
     out += text
     prev = part
   }
-  return out.replace(/ {3,}/g, '  ').trim()
+  // Some PDFs draw a dash with a glyph that has no text meaning, which comes out as the
+  // "unknown character" sign. Between spaces it is almost always a dash.
+  return out.replace(/ {3,}/g, '  ').replace(/ � /g, ' – ').trim()
 }
 
 /** Rebuilds the lines of one page from its text pieces, in the order the PDF stores them. */
