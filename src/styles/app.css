@@ -310,6 +310,37 @@ input[type='text'] {
   margin: 0 0 16px;
 }
 
+/* Building a digest */
+.build {
+  margin-top: 20px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 16px;
+}
+.build-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.build-options .field {
+  flex: 1 1 220px;
+}
+select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-button);
+  padding: 9px 10px;
+}
+.build-result {
+  margin-top: 8px;
+}
+
 @media (max-width: 520px) {
   :root {
     --gutter: 16px;

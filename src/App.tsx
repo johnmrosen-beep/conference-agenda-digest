@@ -29,8 +29,8 @@ export default function App() {
             PDF.
           </p>
           <p className="hint">
-            Early preview: the app can read a PDF's text so you can check it. Building the digest
-            from that text arrives in the next milestones.
+            Early preview: the app can read a PDF and build a digest you can download. The
+            summary, charts, search and agenda export arrive in the next milestones.
           </p>
         </header>
 
@@ -38,7 +38,7 @@ export default function App() {
 
         <main className="steps">
           <ApiKeyPanel saved={savedKey} onChange={setSavedKey} />
-          <Upload hasKey={savedKey !== null} />
+          <Upload apiKey={savedKey?.key ?? null} />
           <DemoEntry />
         </main>
       </div>
