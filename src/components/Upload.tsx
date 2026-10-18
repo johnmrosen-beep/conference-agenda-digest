@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { cleanDocument, type CleanDocument } from '../lib/pdf/cleanText'
 import { PdfReadError, readPdfPages, type ReadProgress } from '../lib/pdf/extractText'
+import BuildDigest from './BuildDigest'
 import TextPreview from './TextPreview'
 
 interface Props {
-  hasKey: boolean
+  apiKey: string | null
 }
 
 type ReadState =
@@ -25,7 +26,7 @@ function formatSize(bytes: number): string {
 
 // Accepts a PDF, reads its text right here in the browser, and shows a page-by-page preview.
 // Reading is free and private: no API key is needed and nothing is sent anywhere yet.
-export default function Upload({ hasKey }: Props) {
+export default function Upload({ apiKey }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -139,10 +140,13 @@ export default function Upload({ hasKey }: Props) {
       {read.step === 'done' && file && (
         <>
           <TextPreview key={`${file.name}-${file.lastModified}`} fileName={file.name} doc={read.doc} />
-          <p className="hint">
-            This is the text Claude will read. Building the digest from it arrives in a later
-            milestone{hasKey ? '' : ', and will need an API key'}.
-          </p>
+          <p className="hint">This is the text Claude will read.</p>
+          <BuildDigest
+            key={`build-${file.name}-${file.lastModified}`}
+            file={file}
+            pages={read.doc.pages}
+            apiKey={apiKey}
+          />
         </>
       )}
     </section>
