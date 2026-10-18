@@ -65,7 +65,7 @@ export interface ExtractionResult {
   seconds: number
 }
 
-const OUTLINE_MAX_TOKENS = 32_000
+const OUTLINE_MAX_TOKENS = 64_000
 const DETAIL_MAX_TOKENS = 32_000
 
 export async function runExtraction(

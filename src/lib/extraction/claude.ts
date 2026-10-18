@@ -107,7 +107,12 @@ export async function callStructured<S extends z.ZodType>(
         max_tokens: call.maxTokens,
         system: call.system,
         messages: [{ role: 'user', content: call.user }],
-        output_config: { effort: call.effort, format: zodOutputFormat(call.schema) },
+        // Only the JSON schema is passed, not the SDK's auto-parser: the auto-parser fails on a
+        // cut-off answer before we can see that it was cut off (and retry it in smaller pieces).
+        output_config: {
+          effort: call.effort,
+          format: { type: 'json_schema', schema: zodOutputFormat(call.schema).schema },
+        },
       },
       { signal: call.signal },
     )
@@ -133,13 +138,28 @@ export async function callStructured<S extends z.ZodType>(
     throw new CallFailed(`The answer for ${call.label} was too long and got cut off.`, 'cut_off', record)
   }
 
-  // Structured outputs already guarantee the shape; checking again with Zod costs nothing and
-  // protects against surprises.
-  const checked = call.schema.safeParse(message.parsed_output)
-  if (!checked.success) {
+  const answer = message.content.map((block) => (block.type === 'text' ? block.text : '')).join('')
+  const data = parseAnswer(answer, call.schema)
+  if (data === null) {
     throw new CallFailed(`The answer for ${call.label} didn't match the expected format.`, 'unreadable', record)
   }
-  return { data: checked.data, record }
+  return { data, record }
+}
+
+/**
+ * Reads Claude's JSON answer and checks it against the schema. Structured outputs already
+ * guarantee the shape of a finished answer; checking again costs nothing and catches surprises.
+ * Returns null for anything unreadable, such as JSON cut off partway.
+ */
+export function parseAnswer<S extends z.ZodType>(answer: string, schema: S): z.infer<S> | null {
+  let json: unknown
+  try {
+    json = JSON.parse(answer)
+  } catch {
+    return null
+  }
+  const checked = schema.safeParse(json)
+  return checked.success ? checked.data : null
 }
 
 /** Counts the tokens in a prompt without running it (free). Used for the cost estimate. */

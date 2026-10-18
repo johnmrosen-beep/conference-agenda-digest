@@ -2,6 +2,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { describe, expect, it } from 'vitest'
 import type { CleanPage } from '../src/lib/pdf/cleanText'
 import { makeChunks } from '../src/lib/extraction/chunk'
+import { parseAnswer } from '../src/lib/extraction/claude'
 import {
   cleanDate,
   cleanTime,
@@ -49,6 +50,21 @@ describe('structured output schemas', () => {
       expect(format.type).toBe('json_schema')
       expect(JSON.stringify(format.schema)).toContain('"additionalProperties":false')
     }
+  })
+})
+
+describe('parseAnswer', () => {
+  it('reads a complete answer', () => {
+    expect(parseAnswer('{"presentations":[]}', ChunkOutput)).toEqual({ presentations: [] })
+  })
+
+  it('returns null for an answer cut off partway, instead of crashing', () => {
+    expect(parseAnswer('{"presentations":[{"page":2,"ti', ChunkOutput)).toBeNull()
+    expect(parseAnswer('', ChunkOutput)).toBeNull()
+  })
+
+  it('returns null for JSON in the wrong shape', () => {
+    expect(parseAnswer('{"items":[]}', ChunkOutput)).toBeNull()
   })
 })
 
