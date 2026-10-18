@@ -62,6 +62,11 @@ export interface FailedChunk {
 
 export interface ExtractionResult {
   digest: Digest
+  /**
+   * Claude's answers before merging. Saving them lets the merge be re-run and debugged, and
+   * lets the evaluation re-score a run, without paying for the API calls again.
+   */
+  raw: { outline: OutlineOutput; chunks: ChunkResult[] }
   issues: ValidationIssue[]
   calls: CallRecord[]
   failedChunks: FailedChunk[]
@@ -218,6 +223,7 @@ export async function runExtraction(
 
   return {
     digest,
+    raw: { outline, chunks: results },
     issues,
     calls,
     failedChunks,

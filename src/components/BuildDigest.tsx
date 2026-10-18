@@ -277,6 +277,13 @@ function BuildResult({ result }: { result: ExtractionResult }) {
         <button type="button" className="btn secondary" onClick={() => downloadJson(digest, `${name} - digest.json`)}>
           Download digest (.json)
         </button>
+        <button
+          type="button"
+          className="btn secondary"
+          onClick={() => downloadJson({ ...result.raw, calls: result.calls }, `${name} - raw answers.json`)}
+        >
+          Download Claude's raw answers
+        </button>
       </div>
       <p className="hint">Summary, charts, search and agenda export for this digest arrive in the next milestones.</p>
     </div>

@@ -23,6 +23,7 @@ export const DETAIL_SYSTEM = `You extract every presentation from a few pages of
 The text is split into pages marked "=== PAGE n ===". Superscript affiliation markers appear as ^1 or ^1,2. In author lists, "Smith^1,2" means Smith has affiliations 1 and 2, and "^1Pediatrics, Example Hospital" is affiliation 1. Text comes from PDF extraction, so line order can be imperfect and words may be split across lines.
 
 A presentation is any talk, keynote, panel, oral abstract, poster or video abstract with a title. For each one:
+- Give the page as the number in the nearest "=== PAGE n ===" marker above where the item starts.
 - Copy the title exactly as printed, keeping its capitalization. Join a title that wraps across lines.
 - List people in printed order, without degrees or markers in the name. Put degrees in credentials.
 - For invited talks, keynotes and panels the people are speakers (people_are_speakers true). For abstracts and posters they are an author list (false).

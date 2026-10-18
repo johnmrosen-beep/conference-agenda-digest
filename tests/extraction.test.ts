@@ -9,6 +9,7 @@ import {
   guessInstitutionType,
   institutionKey,
   mergeDigest,
+  sessionPageSpans,
   type ChunkResult,
 } from '../src/lib/extraction/merge'
 import {
@@ -249,5 +250,36 @@ describe('mergeDigest', () => {
 
   it('keeps only themes from the outline list', () => {
     expect(merged.presentations[1]!.theme_ids).toEqual(['theme-1'])
+  })
+})
+
+describe('sessionPageSpans', () => {
+  it('runs each session until the next session header', () => {
+    const at = (first_page: number, last_page: number) => ({ ...outline.sessions[0]!, first_page, last_page })
+    // Claude said Poster Session I ran to page 125 and Poster Session II stopped at 87.
+    expect(sessionPageSpans([at(18, 125), at(73, 74), at(86, 87), at(142, 142)], 329)).toEqual([
+      { first: 18, last: 73 },
+      { first: 73, last: 85 },
+      { first: 86, last: 141 },
+      { first: 142, last: 142 },
+    ])
+  })
+})
+
+describe('mergeDigest with imperfect answers', () => {
+  it('keeps an item labeled with the context page, and treats it as a poster in a poster session', () => {
+    const digest = mergeDigest({
+      source: { file_name: 'example.pdf', sha256: null, page_count: 3, doc_kind: 'program', extracted_with: null },
+      outline,
+      chunks: [
+        {
+          chunk: { index: 0, extractPages: [3], contextPages: [2], text: '' },
+          presentations: [poster({ page: 2, abstract_number: '7', title: 'A POSTER', kind: 'oral_abstract' })],
+        },
+      ],
+    })
+    expect(digest.presentations).toHaveLength(1)
+    expect(digest.presentations[0]!.kind).toBe('poster')
+    expect(digest.presentations[0]!.session_id).toBe('session-1')
   })
 })

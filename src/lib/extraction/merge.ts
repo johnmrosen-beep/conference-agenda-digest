@@ -157,14 +157,32 @@ class InstitutionRegistry {
 
 // ---------------------------------------------------------------- the merge
 
-function findSession(
-  item: ChunkPresentation,
-  outlineSessions: OutlineSession[],
-  sessions: Session[],
-): Session | null {
-  const onPage = outlineSessions
-    .map((outlineSession, i) => ({ outlineSession, session: sessions[i]! }))
-    .filter(({ outlineSession }) => outlineSession.first_page <= item.page && item.page <= outlineSession.last_page)
+export interface PageSpan {
+  first: number
+  last: number
+}
+
+/**
+ * Works out which pages each session covers. Claude's own page ranges for long poster sessions
+ * proved unreliable (Poster Session II stopping after 2 of its 56 pages), so the rule is
+ * mechanical: a session runs until the page before the next session header, sharing that page
+ * if Claude says it continues onto it. The last session keeps Claude's range.
+ */
+export function sessionPageSpans(sessions: OutlineSession[], pageCount: number): PageSpan[] {
+  const clamp = (n: number) => Math.max(1, Math.min(n, pageCount))
+  const headerPages = [...new Set(sessions.map((s) => clamp(s.first_page)))].sort((a, b) => a - b)
+  return sessions.map((s) => {
+    const first = clamp(s.first_page)
+    const nextHeader = headerPages.find((p) => p > first)
+    if (nextHeader === undefined) return { first, last: Math.max(first, clamp(s.last_page)) }
+    return { first, last: Math.max(first, nextHeader - 1, Math.min(clamp(s.last_page), nextHeader)) }
+  })
+}
+
+function findSession(item: ChunkPresentation, spans: PageSpan[], sessions: Session[]): Session | null {
+  const onPage = spans
+    .map((span, i) => ({ span, session: sessions[i]! }))
+    .filter(({ span }) => span.first <= item.page && item.page <= span.last)
 
   if (item.session_title) {
     const wanted = normalizeForMatch(item.session_title)
@@ -182,9 +200,7 @@ function findSession(
       : []
     const pool = byTime.length > 0 ? byTime : onPage
     // The most specific match is the session whose header is closest above the item.
-    return pool.reduce((best, next) =>
-      next.outlineSession.first_page > best.outlineSession.first_page ? next : best,
-    ).session
+    return pool.reduce((best, next) => (next.span.first > best.span.first ? next : best)).session
   }
   return null
 }
@@ -228,6 +244,7 @@ export function mergeDigest(input: MergeInput): Digest {
   const themeByLabel = new Map(themes.map((t) => [normalizeForMatch(t.label), t.id]))
 
   // --- Sessions, from the outline ---
+  const spans = sessionPageSpans(outline.sessions, pageCount)
   const sessions: Session[] = outline.sessions.map((s, i) => ({
     id: `session-${i + 1}`,
     title: s.title.trim(),
@@ -240,23 +257,27 @@ export function mergeDigest(input: MergeInput): Digest {
     room: cleanText(s.room),
     moderator_ids: s.moderators.filter((m) => m.name.trim()).map((m) => addPerson(m.name, m.credentials).id),
     source_category: null,
-    source_pages: pageRange(s.first_page, s.last_page, pageCount),
+    source_pages: pageRange(spans[i]!.first, spans[i]!.last, pageCount),
   }))
 
   // --- Presentations, from every chunk ---
   const seen = new Map<string, number>()
   const presentations: Presentation[] = []
   for (const { chunk, presentations: items } of input.chunks) {
-    const extractable = new Set(chunk.extractPages)
-    for (const item of items) {
-      // Items from the context page belong to the previous chunk, which extracts them itself.
-      if (!extractable.has(item.page) || !item.title.trim()) continue
+    const chunkPages = new Set([...chunk.contextPages, ...chunk.extractPages])
+    for (const rawItem of items) {
+      if (!rawItem.title.trim()) continue
+      // Items from the context page are kept rather than dropped: Claude sometimes labels an item
+      // with the context page's number, and dropping those lost whole pages of abstracts. Any
+      // true repeat is removed below by its abstract number or title. A page number outside
+      // this chunk is a mistake, so it's replaced with the chunk's first page.
+      const item = chunkPages.has(rawItem.page) ? rawItem : { ...rawItem, page: chunk.extractPages[0]! }
 
       const key = dedupeKey(item)
       const earlier = seen.get(key)
       if (earlier !== undefined && presentations[earlier]!.authors.length >= item.people.length) continue
 
-      const session = findSession(item, outline.sessions, sessions)
+      const session = findSession(item, spans, sessions)
 
       // Affiliations of this presentation, by marker.
       const byMarker = new Map<string, Affiliation>()
@@ -307,7 +328,8 @@ export function mergeDigest(input: MergeInput): Digest {
         session_id: session?.id ?? null,
         abstract_number: cleanText(item.abstract_number?.replace(/\*+$/, '') ?? null),
         title: item.title.replace(/\s+/g, ' ').trim(),
-        kind: item.kind,
+        // An "oral abstract" inside a poster session is a poster.
+        kind: session?.session_type === 'poster_session' && item.kind === 'oral_abstract' ? 'poster' : item.kind,
         award_label: cleanText(item.award_label),
         is_highlighted: item.is_highlighted,
         withdrawn: item.withdrawn,
