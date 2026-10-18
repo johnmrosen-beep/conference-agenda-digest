@@ -9,6 +9,7 @@ import {
   guessInstitutionType,
   institutionKey,
   mergeDigest,
+  recoverAbstractNumbers,
   safeSkipPages,
   sessionPageSpans,
   type ChunkResult,
@@ -289,5 +290,21 @@ describe('safeSkipPages', () => {
   it('never skips a page that belongs to a session', () => {
     // The fake outline's poster session covers pages 2-3; Claude wrongly lists page 3 as skippable.
     expect(safeSkipPages({ ...outline, skip_pages: [3, 5] }, 6)).toEqual([5])
+  })
+})
+
+describe('recoverAbstractNumbers', () => {
+  it('fills in a number printed just before the title, and only then', () => {
+    const digest = structuredClone(merged)
+    const poster = digest.presentations[1]!
+    poster.abstract_number = null
+    const other = digest.presentations[0]!
+    const pageTexts = new Map([
+      [1, 'The Gut at Every Age'],
+      [2, '1 IRON DEFICIENCY AT\nDIAGNOSIS. Benjamin Hale^1, Leila Haddad^1,2'],
+    ])
+    expect(recoverAbstractNumbers(digest, pageTexts)).toBe(1)
+    expect(poster.abstract_number).toBe('1')
+    expect(other.abstract_number).toBeNull() // a talk with no printed number stays without one
   })
 })

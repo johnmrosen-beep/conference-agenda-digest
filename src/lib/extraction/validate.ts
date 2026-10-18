@@ -75,8 +75,12 @@ export function normalizeForMatch(text: string): string {
 export function appearsIn(phrase: string, text: string): boolean {
   const needle = normalizeForMatch(phrase)
   if (!needle) return true
-  const haystack = normalizeForMatch(text)
-  if (` ${haystack} `.includes(` ${needle} `)) return true
+  // A hyphen at a line break can be part of the word ("Hos-" "pital") or of a name
+  // ("Vera-" "Chamorro"), so try the text both ways.
+  const joined = normalizeForMatch(text)
+  const spaced = normalizeForMatch(text.replace(/-\s*\n\s*/g, '- '))
+  if ([joined, spaced].some((h) => ` ${h} `.includes(` ${needle} `))) return true
+  const haystack = `${joined} ${spaced}`
   const words = needle.split(' ').filter((w) => w.length >= 3)
   if (words.length < 4) return false
   const present = new Set(haystack.split(' '))
@@ -234,8 +238,9 @@ export function checkDigest(
     const peopleById = new Map(digest.people.map((person) => [person.id, person]))
     for (const p of digest.presentations) {
       if (p.source_pages.length === 0) continue
-      // Include the next page too, since a title or author list can run onto it.
-      const pages = new Set(p.source_pages.flatMap((n) => [n, n + 1]))
+      // Include the pages either side: a title can run onto the next page, and Claude
+      // sometimes gives the page before.
+      const pages = new Set(p.source_pages.flatMap((n) => [n - 1, n, n + 1]))
       const text = [...pages].map((n) => pageTexts.get(n) ?? '').join('\n')
       if (!appearsIn(p.title, text)) {
         add('TITLE_NOT_IN_SOURCE', 'warning', `The title "${p.title}" wasn't found on page ${p.source_pages.join(', ')}.`, p.id, p.source_pages)

@@ -342,8 +342,13 @@ export function mergeDigest(input: MergeInput): Digest {
         session_id: session?.id ?? null,
         abstract_number: cleanText(item.abstract_number?.replace(/\*+$/, '') ?? null),
         title: item.title.replace(/\s+/g, ' ').trim(),
-        // An "oral abstract" inside a poster session is a poster.
-        kind: session?.session_type === 'poster_session' && item.kind === 'oral_abstract' ? 'poster' : item.kind,
+        // Anything numbered or authored inside a poster session is a poster.
+        kind:
+          session?.session_type === 'poster_session' &&
+          (item.kind === 'oral_abstract' || item.kind === 'other') &&
+          (item.abstract_number !== null || item.people.length > 0)
+            ? 'poster'
+            : item.kind,
         award_label: cleanText(item.award_label),
         is_highlighted: item.is_highlighted,
         withdrawn: item.withdrawn,
@@ -413,4 +418,36 @@ export function mergeDigest(input: MergeInput): Digest {
     themes,
     warnings,
   }
+}
+
+/**
+ * Fills in abstract numbers Claude left out. In program books the number is printed just before
+ * the title ("442 INTESTINAL LYMPHATIC MALFORMATION..."), so when a presentation has no number,
+ * we look on its page (and the page before) for a line that starts with a number followed by
+ * the start of its title. Only numbers found printed that way are used.
+ */
+export function recoverAbstractNumbers(digest: Digest, pageTexts: ReadonlyMap<number, string>): number {
+  const taken = new Set(digest.presentations.map((p) => p.abstract_number).filter((n) => n !== null))
+  let recovered = 0
+  for (const p of digest.presentations) {
+    if (p.abstract_number !== null || p.source_pages.length === 0) continue
+    const titleStart = normalizeForMatch(p.title).split(' ').slice(0, 6).join(' ')
+    if (titleStart.split(' ').length < 3) continue
+    const page = p.source_pages[0]!
+    const text = [page - 1, page].map((n) => pageTexts.get(n) ?? '').join('\n')
+    const lines = text.split('\n')
+    for (const [i, line] of lines.entries()) {
+      const match = line.match(/^\s*(\d{1,4})\*?\s+(.*)$/)
+      if (!match || taken.has(match[1]!)) continue
+      // Titles wrap, so compare against this line and the two after it.
+      const following = [match[2]!, lines[i + 1] ?? '', lines[i + 2] ?? ''].join(' ')
+      if (normalizeForMatch(following).startsWith(titleStart)) {
+        p.abstract_number = match[1]!
+        taken.add(match[1]!)
+        recovered++
+        break
+      }
+    }
+  }
+  return recovered
 }
