@@ -53,8 +53,19 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
   const [limit, setLimit] = useState('')
   const [state, setState] = useState<RunState>({ step: 'idle' })
   const running = useRef<AbortController | null>(null)
+  // When the last piece of an answer arrived, to show "waiting" vs "writing".
+  const lastActivity = useRef({ chars: 0, at: 0 })
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => () => running.current?.abort(), [])
+
+  // While running, refresh once a second so the "last activity" time stays current.
+  const isRunning = state.step === 'running'
+  useEffect(() => {
+    if (!isRunning) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [isRunning])
 
   const doc = { fileName: file.name, sha256: null, pages }
   const limitUsd = Number(limit)
@@ -76,6 +87,7 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
     if (!apiKey || !limitValid) return
     const controller = new AbortController()
     running.current = controller
+    lastActivity.current = { chars: 0, at: Date.now() }
     setState({ step: 'running', progress: null })
     try {
       const result = await runExtraction(
@@ -86,7 +98,12 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
           effort,
           spendLimitUsd: limitUsd,
           signal: controller.signal,
-          onProgress: (progress) => setState({ step: 'running', progress }),
+          onProgress: (progress) => {
+            if (progress.receivedChars !== lastActivity.current.chars) {
+              lastActivity.current = { chars: progress.receivedChars, at: Date.now() }
+            }
+            setState({ step: 'running', progress })
+          },
         },
       )
       setState({ step: 'done', result })
@@ -184,6 +201,16 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
               : 'Starting…'}
           </p>
           <progress max={state.progress?.total || 1} value={state.progress?.done ?? 0} />
+          {state.progress && (
+            <p className="hint">
+              {state.progress.inFlight} {state.progress.inFlight === 1 ? 'request' : 'requests'} running ·{' '}
+              {state.progress.receivedChars.toLocaleString('en-US')} characters received · last text{' '}
+              {Math.max(0, Math.round((now - lastActivity.current.at) / 1000))} seconds ago.{' '}
+              {now - lastActivity.current.at > 90_000
+                ? 'Long pauses usually mean the API is pacing requests from a new account; it retries automatically.'
+                : ''}
+            </p>
+          )}
           <div className="btn-row">
             <button type="button" className="btn secondary" onClick={() => running.current?.abort()}>
               Cancel

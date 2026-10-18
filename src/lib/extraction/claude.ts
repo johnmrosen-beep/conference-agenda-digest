@@ -73,6 +73,8 @@ export interface StructuredCall<S extends z.ZodType> {
   guard: SpendGuard
   label: string
   signal?: AbortSignal
+  /** Called as the answer streams in, with the number of new characters. */
+  onText?: (newChars: number) => void
 }
 
 function translateApiError(error: unknown): Error {
@@ -116,6 +118,7 @@ export async function callStructured<S extends z.ZodType>(
       },
       { signal: call.signal },
     )
+    .on('text', (delta) => call.onText?.(delta.length))
     .finalMessage()
     .catch((error: unknown) => {
       throw translateApiError(error)

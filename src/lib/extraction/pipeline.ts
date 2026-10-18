@@ -49,6 +49,10 @@ export interface ExtractionProgress {
   done: number
   total: number
   spentUsd: number
+  /** Characters of answer received so far, across all requests: shows Claude is still writing. */
+  receivedChars: number
+  /** Requests currently waiting for an answer. */
+  inFlight: number
 }
 
 export interface FailedChunk {
@@ -81,10 +85,24 @@ export async function runExtraction(
   const signal = stopper.signal
   const guard = new SpendGuard(options.spendLimitUsd)
   const calls: CallRecord[] = []
-  const report = (stage: ExtractionProgress['stage'], done: number, total: number) =>
-    options.onProgress?.({ stage, done, total, spentUsd: guard.spentUsd })
+  let receivedChars = 0
+  let inFlight = 0
+  let current = { stage: 'outline' as ExtractionProgress['stage'], done: 0, total: 1 }
+  const report = (stage: ExtractionProgress['stage'], done: number, total: number) => {
+    current = { stage, done, total }
+    options.onProgress?.({ ...current, spentUsd: guard.spentUsd, receivedChars, inFlight })
+  }
+  let lastTextReport = 0
+  const onText = (newChars: number) => {
+    receivedChars += newChars
+    // Text arrives in many small pieces; updating the screen 4 times a second is plenty.
+    if (performance.now() - lastTextReport < 250) return
+    lastTextReport = performance.now()
+    options.onProgress?.({ ...current, spentUsd: guard.spentUsd, receivedChars, inFlight })
+  }
 
   // ---- 1. Outline
+  inFlight = 1
   report('outline', 0, 1)
   const outlineCall = await callStructured({
     client,
@@ -97,7 +115,9 @@ export async function runExtraction(
     guard,
     label: 'the outline',
     signal,
+    onText,
   })
+  inFlight = 0
   calls.push(outlineCall.record)
   const outline = outlineCall.data
   report('outline', 1, 1)
@@ -113,6 +133,7 @@ export async function runExtraction(
   const runChunk = async (chunk: Chunk) => {
     const pages = chunk.extractPages
     const label = `pages ${pages[0]}-${pages.at(-1)}`
+    inFlight++
     try {
       const { data, record } = await callStructured({
         client,
@@ -130,6 +151,7 @@ export async function runExtraction(
         guard,
         label,
         signal,
+        onText,
       })
       calls.push(record)
       results.push({ chunk, presentations: data.presentations })
@@ -150,6 +172,7 @@ export async function runExtraction(
         failedChunks.push({ pages, message: error.message })
       }
     }
+    inFlight--
     done++
     report('details', done, total)
   }
@@ -248,8 +271,9 @@ export async function estimateCost(
     chunks.length *
       costOfCall(model, { input_tokens: chunkTokens, output_tokens: chunkTokens * outputShare })
 
-  const lowUsd = estimate(0.3, 4_000)
-  const highUsd = estimate(1.2, 16_000)
+  // Calibrated loosely from the first real run (the evaluation will measure this properly).
+  const lowUsd = estimate(1.0, 8_000)
+  const highUsd = estimate(3.0, 32_000)
   return {
     outlineInputTokens,
     detailInputTokens,

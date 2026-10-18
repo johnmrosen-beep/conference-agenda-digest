@@ -266,15 +266,16 @@ export function mergeDigest(input: MergeInput): Digest {
         if (!raw) return
         const institutionName = cleanText(a.institution)
         const institution = institutionName
-          ? institutions.add(institutionName, cleanText(a.city), cleanText(a.country))
+          ? institutions.add(institutionName, null, cleanText(a.country))
           : null
         const affiliation = affiliations.add(normalizeForMatch(raw), (id) => ({
           id,
           raw_text: raw,
-          department: cleanText(a.department),
+          // Department, city and state aren't asked for, to keep answers short (and cheap).
+          department: null,
           institution_id: institution?.id ?? null,
-          city: cleanText(a.city),
-          region: cleanText(a.region),
+          city: null,
+          region: null,
           country: cleanText(a.country),
         }))
         byMarker.set(cleanText(a.marker) ?? String(i + 1), affiliation)

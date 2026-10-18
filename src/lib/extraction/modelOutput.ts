@@ -82,10 +82,7 @@ export const ChunkPerson = z.strictObject({
 export const ChunkAffiliation = z.strictObject({
   marker: maybe('The printed marker, e.g. "1"; null if affiliations are not numbered'),
   raw_text: text.describe('The affiliation exactly as printed, without its marker'),
-  department: maybe('Department or division, if given'),
   institution: maybe('The institution (hospital, university, company) only'),
-  city: maybe('City'),
-  region: maybe('State or province'),
   country: maybe('Country'),
 })
 

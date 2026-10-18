@@ -19,8 +19,11 @@ export interface Chunk {
   text: string
 }
 
-/** About 6,000 tokens of text per chunk. */
-export const DEFAULT_CHUNK_CHARS = 24_000
+/**
+ * About 3,000 tokens of text per chunk. Dense poster pages turn into long answers, and an
+ * answer that runs past its limit is billed but unusable, so smaller chunks are cheaper overall.
+ */
+export const DEFAULT_CHUNK_CHARS = 12_000
 
 export function makeChunks(
   pages: CleanPage[],
