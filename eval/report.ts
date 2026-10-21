@@ -1,13 +1,13 @@
 // Scores saved runs (from run.ts) against the golden slices and writes a comparison table.
 // Costs nothing: it only reads files.
 //
-// Usage:
-//   npm run eval:report -- --dataset eval/private/naspghan-2026 --runs eval/runs/<folder>
+// Usage (several run folders can be combined, for example a Haiku stage and a Sonnet stage):
+//   npm run eval:report -- --dataset eval/private/naspghan-2026 --runs eval/runs/<folder>[,eval/runs/<folder2>]
 //
 // Writes two files:
-//   eval/reports/<folder>.md         numbers only, safe to publish
-//   eval/runs/<folder>/details.md    which titles were missed or invented (private: these are
-//                                    the conference's own titles)
+//   eval/reports/<last folder>.md         numbers only, safe to publish
+//   eval/runs/<last folder>/details.md    which titles were missed or invented (private: these
+//                                         are the conference's own titles)
 
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -83,10 +83,17 @@ async function main() {
   const { slices } = await loadDataset(values.dataset)
   const bySlice = new Map(slices.map((s) => [s.id, s]))
 
-  const files = (await readdir(values.runs)).filter((f) => f.endsWith('.json') && !f.endsWith('.error.json'))
+  const runDirs = values.runs.split(',').map((d) => d.trim()).filter(Boolean)
   const runs: SavedRun[] = []
-  for (const file of files) runs.push(JSON.parse(await readFile(join(values.runs, file), 'utf8')) as SavedRun)
-  const failures = (await readdir(values.runs)).filter((f) => f.endsWith('.error.json')).length
+  let failures = 0
+  for (const dir of runDirs) {
+    const files = await readdir(dir)
+    for (const file of files.filter((f) => f.endsWith('.json') && !f.endsWith('.error.json'))) {
+      runs.push(JSON.parse(await readFile(join(dir, file), 'utf8')) as SavedRun)
+    }
+    failures += files.filter((f) => f.endsWith('.error.json')).length
+  }
+  const outDir = runDirs.at(-1)!
 
   // Group: configuration (model + effort) -> repeat -> runs over the slices.
   const configs = new Map<string, Map<number, SavedRun[]>>()
@@ -120,8 +127,8 @@ async function main() {
 
   // ---- The table
   const lines: string[] = []
-  const name = basename(values.runs)
-  lines.push(`# Evaluation report: ${name}`, '')
+  const name = basename(outDir)
+  lines.push(`# Evaluation report: ${runDirs.map((d) => basename(d)).join(' + ')}`, '')
   lines.push(
     `Golden slices: ${slices.map((s) => `${s.id} (${s.presentations.length} presentations${s.reviewed ? '' : ', NOT YET REVIEWED'})`).join(', ')}.`,
     `Runs scored: ${runs.length}. Failed runs: ${failures}.`,
@@ -187,9 +194,9 @@ async function main() {
   const report = lines.join('\n') + '\n'
   await mkdir(join('eval', 'reports'), { recursive: true })
   await writeFile(join('eval', 'reports', `${name}.md`), report)
-  await writeFile(join(values.runs, 'details.md'), results.flatMap((r) => r.details).join('\n') + '\n')
+  await writeFile(join(outDir, 'details.md'), results.flatMap((r) => r.details).join('\n') + '\n')
   console.log(report)
-  console.log(`Saved eval/reports/${name}.md (numbers only) and ${join(values.runs, 'details.md')} (private titles).`)
+  console.log(`Saved eval/reports/${name}.md (numbers only) and ${join(outDir, 'details.md')} (private titles).`)
 }
 
 await main()
