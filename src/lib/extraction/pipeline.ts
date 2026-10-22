@@ -26,6 +26,7 @@ import {
   safeSkipPages,
   type ChunkResult,
 } from './merge'
+import { resolveInstitutions, type InstitutionGroups } from './institutions'
 import { ChunkOutput, OutlineOutput } from './modelOutput'
 import { costOfCall, type Effort, type ModelId } from './pricing'
 import { DETAIL_SYSTEM, OUTLINE_SYSTEM, detailUserMessage, outlineUserMessage } from './prompts'
@@ -49,6 +50,8 @@ export interface ExtractionOptions {
    * spent by a run that fails partway still counts). When given, spendLimitUsd is ignored.
    */
   guard?: SpendGuard
+  /** Merge institution names with one extra Claude call (default true; the evaluation can turn it off to compare). */
+  resolveInstitutions?: boolean
   /** How many chunks are sent at the same time. */
   concurrency?: number
   signal?: AbortSignal
@@ -56,7 +59,7 @@ export interface ExtractionOptions {
 }
 
 export interface ExtractionProgress {
-  stage: 'outline' | 'details' | 'checking'
+  stage: 'outline' | 'details' | 'institutions' | 'checking'
   done: number
   total: number
   spentUsd: number
@@ -77,7 +80,7 @@ export interface ExtractionResult {
    * Claude's answers before merging. Saving them lets the merge be re-run and debugged, and
    * lets the evaluation re-score a run, without paying for the API calls again.
    */
-  raw: { outline: OutlineOutput; chunks: ChunkResult[] }
+  raw: { outline: OutlineOutput; chunks: ChunkResult[]; institutionGroups?: InstitutionGroups | null }
   issues: ValidationIssue[]
   calls: CallRecord[]
   failedChunks: FailedChunk[]
@@ -226,10 +229,31 @@ export async function runExtraction(
     chunks: results,
   })
 
-  // ---- 4. Check, and record every problem in the digest itself
   const pageTexts = new Map(doc.pages.map((p) => [p.pageNumber, p.text]))
   recoverAbstractNumbers(digest, pageTexts)
   recoverStartTimes(digest, pageTexts)
+
+  // ---- 4. Merge institution names that are the same organization (one small call)
+  let institutionGroups: InstitutionGroups | null = null
+  if (options.resolveInstitutions !== false && digest.institutions.length > 1) {
+    report('institutions', 0, 1)
+    inFlight = 1
+    try {
+      const resolved = await resolveInstitutions(digest, { client, model, effort, guard, signal, onText })
+      calls.push(resolved.record)
+      institutionGroups = resolved.answer
+    } catch (error) {
+      if (!(error instanceof CallFailed)) throw error
+      if (error.record) calls.push(error.record)
+      // Not fatal: the digest keeps the institution names as they were.
+      digest.warnings.push({ code: 'INSTITUTIONS_NOT_MERGED', message: error.message, ref_id: null, pages: [] })
+    }
+    inFlight = 0
+    report('institutions', 1, 1)
+  }
+
+  // ---- 5. Check, and record every problem in the digest itself
+  report('checking', 0, 1)
   const issues = checkDigest(digest, { pageTexts })
   for (const failed of failedChunks) {
     digest.warnings.push({ code: 'CHUNK_FAILED', message: failed.message, ref_id: null, pages: failed.pages })
@@ -241,7 +265,7 @@ export async function runExtraction(
 
   return {
     digest,
-    raw: { outline, chunks: results },
+    raw: { outline, chunks: results, institutionGroups },
     issues,
     calls,
     failedChunks,

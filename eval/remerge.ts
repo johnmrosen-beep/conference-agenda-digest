@@ -9,6 +9,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { applyInstitutionGroups, listInstitutions } from '../src/lib/extraction/institutions'
 import { mergeDigest, recoverAbstractNumbers, recoverStartTimes } from '../src/lib/extraction/merge'
 import type { ExtractionResult } from '../src/lib/extraction/pipeline'
 import { checkDigest } from '../src/lib/extraction/validate'
@@ -34,6 +35,10 @@ for (const file of (await readdir(values.runs)).filter((f) => f.endsWith('.json'
   const digest = mergeDigest({ source: run.digest.source, outline: run.raw.outline, chunks: run.raw.chunks })
   recoverAbstractNumbers(digest, pageTexts)
   recoverStartTimes(digest, pageTexts)
+  // Re-apply the saved institution grouping, if the run made one (no new call needed).
+  if (run.raw.institutionGroups) {
+    applyInstitutionGroups(digest, listInstitutions(digest), run.raw.institutionGroups)
+  }
   const issues = checkDigest(digest, { pageTexts })
   for (const issue of issues) {
     digest.warnings.push({ code: issue.code, message: issue.message, ref_id: issue.refId, pages: issue.pages })
