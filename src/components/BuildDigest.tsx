@@ -9,6 +9,7 @@ import {
   type ExtractionResult,
 } from '../lib/extraction/pipeline'
 import { MODELS, formatUsd, type Effort, type ModelId } from '../lib/extraction/pricing'
+import DigestView from './DigestView'
 
 interface Props {
   file: File
@@ -28,6 +29,7 @@ const STAGE_LABEL: Record<ExtractionProgress['stage'], string> = {
   outline: 'Mapping sessions and themes',
   details: 'Reading presentations',
   institutions: 'Merging institution names',
+  summary: 'Writing the overview',
   checking: 'Checking the results',
 }
 
@@ -286,7 +288,7 @@ function BuildResult({ result }: { result: ExtractionResult }) {
           Download Claude's raw answers
         </button>
       </div>
-      <p className="hint">Summary, charts, search and agenda export for this digest arrive in the next milestones.</p>
+      <DigestView digest={digest} />
     </div>
   )
 }
