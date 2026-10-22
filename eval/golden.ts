@@ -76,6 +76,15 @@ export function digestToGolden(digest: Digest, slice: { id: string; description:
     if (institution.aliases.length > 0) aliases[institution.canonical_name] = institution.aliases
   }
 
+  // A program prints "Concurrent Session I: Earth, Wind and Fire". A digest may keep that whole,
+  // or split it into series "Concurrent Session I" and title "Earth, Wind and Fire"; both are
+  // right, so the golden form always puts the series back in front.
+  const fullTitle = (id: string | null): string | null => {
+    const s = id ? sessions.get(id) : undefined
+    if (!s) return null
+    return s.series && !s.title.toLowerCase().startsWith(s.series.toLowerCase()) ? `${s.series}: ${s.title}` : s.title
+  }
+
   return {
     id: slice.id,
     description: slice.description,
@@ -83,7 +92,7 @@ export function digestToGolden(digest: Digest, slice: { id: string; description:
     reviewed: true,
     sessions: [...sessionIds].map((id) => {
       const s = sessions.get(id)!
-      return { title: s.title, date: s.date, start_time: s.start_time, end_time: s.end_time, room: s.room }
+      return { title: fullTitle(id)!, date: s.date, start_time: s.start_time, end_time: s.end_time, room: s.room }
     }),
     presentations: inSlice.map((p) => {
       const institutionNames = new Set<string>()
@@ -98,7 +107,7 @@ export function digestToGolden(digest: Digest, slice: { id: string; description:
         abstract_number: p.abstract_number,
         title: p.title,
         kind: p.kind,
-        session_title: p.session_id ? (sessions.get(p.session_id)?.title ?? null) : null,
+        session_title: fullTitle(p.session_id),
         date: p.date,
         start_time: p.start_time,
         end_time: p.end_time,
