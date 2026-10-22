@@ -8,8 +8,9 @@
 // Options: --models haiku,sonnet  --efforts low,medium  --repeats 3  --slices plenary,posters-1
 //
 // Spending protection: --max-dollars is required. The script estimates the whole run first and
-// refuses to start if the estimate is over the cap; during the run, every request checks the
-// money left and the run stops when it is gone.
+// refuses to start if even the low estimate is over the cap; during the run, every request
+// checks the money left and the run stops when it is gone. Runs go one full repeat at a time,
+// so stopping at the cap leaves complete repeats rather than a scattering of pieces.
 
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -87,20 +88,27 @@ async function main() {
 
   // ---- Estimate everything before spending anything
   const client = createClient(apiKey)
-  let estimate = 0
-  console.log('\nEstimated cost per run (high end), from free token counts:')
+  let low = 0
+  let high = 0
+  console.log('\nEstimated cost per run (low to high), from free token counts:')
   for (const model of models) {
     for (const slice of slices) {
-      const { highUsd } = await estimateCost(docFor(slice), client, model)
-      console.log(`  ${MODELS[model].label.padEnd(48)} ${slice.id.padEnd(16)} ${formatUsd(highUsd)}`)
-      estimate += highUsd * efforts.length * repeats
+      const { lowUsd, highUsd } = await estimateCost(docFor(slice), client, model)
+      console.log(`  ${MODELS[model].label.padEnd(48)} ${slice.id.padEnd(20)} ${formatUsd(lowUsd)} to ${formatUsd(highUsd)}`)
+      low += lowUsd * efforts.length * repeats
+      high += highUsd * efforts.length * repeats
     }
   }
   const runCount = models.length * efforts.length * repeats * slices.length
-  console.log(`\n${runCount} runs, estimated at most ${formatUsd(estimate)}. Cap: ${formatUsd(maxDollars)}.`)
+  console.log(`\n${runCount} runs, estimated ${formatUsd(low)} to ${formatUsd(high)}. Cap: ${formatUsd(maxDollars)}.`)
   if (values['dry-run']) return console.log('Dry run: nothing was spent.')
-  if (estimate > maxDollars) {
-    fail('The estimate is over your cap. Use fewer --repeats, --models or --slices, or raise --max-dollars.')
+  // The high estimate has proved cautious (real Haiku runs cost about a third of it), and the
+  // cap itself stops spending, so only refuse when even the low estimate cannot fit.
+  if (low > maxDollars) {
+    fail('Even the low estimate is over your cap. Use fewer --repeats, --models or --slices, or raise --max-dollars.')
+  }
+  if (high > maxDollars) {
+    console.log('The high estimate is over the cap, so the run may stop early at the cap. Completed repeats are kept.')
   }
 
   // ---- Run
