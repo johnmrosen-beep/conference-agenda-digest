@@ -59,6 +59,29 @@ export interface ExtractionOptions {
   concurrency?: number
   signal?: AbortSignal
   onProgress?: (progress: ExtractionProgress) => void
+  /** Work saved from an earlier, interrupted run of the same PDF with the same model and effort. */
+  resumeFrom?: { outline: OutlineOutput | null; chunks: ChunkResult[] }
+  /** Called after the outline and after every finished page group, so progress can be saved. */
+  onCheckpoint?: (state: Checkpoint) => void
+}
+
+export interface Checkpoint {
+  outline: OutlineOutput
+  chunks: ChunkResult[]
+  plannedChunks: number
+}
+
+/**
+ * Splits the planned page groups into those already answered in a saved run and those still to
+ * send. A group counts as answered when every one of its pages was covered by a saved answer
+ * (saved answers can be for smaller groups, from a group that was split after being cut off).
+ */
+export function planResume(planned: Chunk[], saved: ChunkResult[]): { reuse: ChunkResult[]; todo: Chunk[] } {
+  const covered = new Set(saved.flatMap((r) => r.chunk.extractPages))
+  return {
+    reuse: saved,
+    todo: planned.filter((chunk) => !chunk.extractPages.every((page) => covered.has(page))),
+  }
 }
 
 export interface ExtractionProgress {
@@ -132,35 +155,44 @@ export async function runExtraction(
     options.onProgress?.({ ...current, spentUsd: guard.spentUsd, receivedChars, inFlight })
   }
 
-  // ---- 1. Outline
-  inFlight = 1
-  report('outline', 0, 1)
-  const outlineCall = await callStructured({
-    client,
-    model,
-    effort,
-    system: OUTLINE_SYSTEM,
-    user: outlineUserMessage(toPromptText(doc.pages)),
-    schema: OutlineOutput,
-    maxTokens: OUTLINE_MAX_TOKENS,
-    guard,
-    label: 'the outline',
-    signal,
-    onText,
-  })
-  inFlight = 0
-  calls.push(outlineCall.record)
-  const outline = outlineCall.data
+  // ---- 1. Outline (reused when resuming an interrupted run)
+  let outline: OutlineOutput
+  if (options.resumeFrom?.outline) {
+    outline = options.resumeFrom.outline
+  } else {
+    inFlight = 1
+    report('outline', 0, 1)
+    const outlineCall = await callStructured({
+      client,
+      model,
+      effort,
+      system: OUTLINE_SYSTEM,
+      user: outlineUserMessage(toPromptText(doc.pages)),
+      schema: OutlineOutput,
+      maxTokens: OUTLINE_MAX_TOKENS,
+      guard,
+      label: 'the outline',
+      signal,
+      onText,
+    })
+    inFlight = 0
+    calls.push(outlineCall.record)
+    outline = outlineCall.data
+  }
   report('outline', 1, 1)
 
-  // ---- 2. Details, a few chunks at a time
+  // ---- 2. Details, a few chunks at a time (skipping groups a saved run already answered)
   const skipPages = safeSkipPages(outline, pageCount)
-  const queue: Chunk[] = makeChunks(doc.pages, { skipPages })
-  const results: ChunkResult[] = []
+  const planned = makeChunks(doc.pages, { skipPages })
+  const { reuse, todo } = planResume(planned, options.resumeFrom?.chunks ?? [])
+  const queue: Chunk[] = todo
+  const results: ChunkResult[] = [...reuse]
   const failedChunks: FailedChunk[] = []
-  let total = queue.length
-  let done = 0
-  report('details', 0, total)
+  let total = planned.length
+  let done = planned.length - todo.length
+  const checkpoint = () => options.onCheckpoint?.({ outline, chunks: [...results], plannedChunks: planned.length })
+  checkpoint()
+  report('details', done, total)
 
   const runChunk = async (chunk: Chunk) => {
     const pages = chunk.extractPages
@@ -187,6 +219,7 @@ export async function runExtraction(
       })
       calls.push(record)
       results.push({ chunk, presentations: data.presentations })
+      checkpoint()
     } catch (error) {
       if (!(error instanceof CallFailed)) throw error // spending limit, bad key, cancel: stop everything
       if (error.record) calls.push(error.record)
