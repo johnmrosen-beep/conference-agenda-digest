@@ -30,8 +30,9 @@ export default function App() {
             PDF.
           </p>
           <p className="hint">
-            Early preview: the app can read a PDF and build a digest you can download. The
-            summary, charts, search and agenda export arrive in the next milestones.
+            Built for pediatric gastroenterology meetings, and works with other conference
+            programs. No API key? <a href="#demo-heading">Try the demo</a> with a fictional
+            conference, free.
           </p>
         </header>
 
