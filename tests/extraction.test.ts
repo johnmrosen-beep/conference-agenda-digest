@@ -10,6 +10,8 @@ import {
   institutionKey,
   mergeDigest,
   recoverAbstractNumbers,
+  recoverStartTimes,
+  to24Hour,
   safeSkipPages,
   sessionPageSpans,
   type ChunkResult,
@@ -306,5 +308,43 @@ describe('recoverAbstractNumbers', () => {
     expect(recoverAbstractNumbers(digest, pageTexts)).toBe(1)
     expect(poster.abstract_number).toBe('1')
     expect(other.abstract_number).toBeNull() // a talk with no printed number stays without one
+  })
+})
+
+describe('to24Hour', () => {
+  it('converts 12-hour clock times', () => {
+    expect(to24Hour('2', '28', 'PM')).toBe('14:28')
+    expect(to24Hour('12', '05', 'PM')).toBe('12:05')
+    expect(to24Hour('12', '00', 'AM')).toBe('00:00')
+    expect(to24Hour('9', '40', 'am')).toBe('09:40')
+    expect(to24Hour('13', '00', 'PM')).toBeNull()
+  })
+})
+
+describe('recoverStartTimes', () => {
+  it('uses a time printed on its own line above a talk that only has its session start', () => {
+    const digest = structuredClone(merged)
+    const keynote = digest.presentations[0]! // in the Opening Plenary, 08:00-09:30
+    keynote.start_time = '08:00'
+    keynote.end_time = '09:30'
+    const pageTexts = new Map([[1, 'Opening Plenary\n8:10 AM\n\nWilliam F Balistreri Keynote Lecture\nThe Gut at Every Age']])
+    expect(recoverStartTimes(digest, pageTexts)).toBe(1)
+    expect([keynote.start_time, keynote.end_time]).toEqual(['08:10', null])
+  })
+
+  it('also reads a time printed on the same line as the abstract number', () => {
+    const digest = structuredClone(merged)
+    const poster = digest.presentations[1]! // poster 1, in Poster Session 1, 12:00-13:30
+    const pageTexts = new Map([[2, '12:45 PM 1 IRON DEFICIENCY AT DIAGNOSIS']])
+    expect(recoverStartTimes(digest, pageTexts)).toBe(1)
+    expect(poster.start_time).toBe('12:45')
+  })
+
+  it("leaves posters alone under a session's printed hours", () => {
+    const digest = structuredClone(merged)
+    const poster = digest.presentations[1]!
+    const pageTexts = new Map([[2, 'Poster Session 1\n12:00 PM - 1:30 PM\nExhibit Hall B\n1 IRON DEFICIENCY AT DIAGNOSIS']])
+    expect(recoverStartTimes(digest, pageTexts)).toBe(0)
+    expect([poster.start_time, poster.end_time]).toEqual(['12:00', '13:30'])
   })
 })
