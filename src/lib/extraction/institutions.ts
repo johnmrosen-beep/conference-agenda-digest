@@ -18,7 +18,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 export const InstitutionGroups = z.strictObject({
   groups: z.array(
     z.strictObject({
-      name: z.string().describe('The organization’s full official name, in English'),
+      name: z.string().describe('The clearest of the listed names in this group, copied exactly'),
       type: InstitutionType,
       members: z.array(z.number().int()).describe('List numbers of every name that is this organization'),
     }),
@@ -87,11 +87,18 @@ export function applyInstitutionGroups(
       spellings.add(institution.canonical_name)
       for (const alias of institution.aliases) spellings.add(alias)
     }
-    spellings.delete(group.name)
+    // The group's name is a spelling printed in the PDF: Claude's choice when it is one of the
+    // printed spellings, otherwise the one used most often. Asking Claude for each group's
+    // "full official name" lowered accuracy in evaluation (institution F1 0.98 -> 0.89), because
+    // new names that appear nowhere in the program can't be matched or checked.
+    const mostMentioned = [...group.members].sort((a, b) => b.mentions - a.mentions)[0]!.institution.canonical_name
+    const suggested = [...spellings].find((s) => s.toLowerCase() === group.name.toLowerCase())
+    const name = suggested ?? mostMentioned
+    spellings.delete(name)
     const first = group.members[0]!.institution
     return {
       id,
-      canonical_name: group.name,
+      canonical_name: name,
       aliases: [...spellings],
       city: group.members.map((m) => m.institution.city).find((c) => c !== null) ?? first.city,
       country: group.members.map((m) => m.institution.country).find((c) => c !== null) ?? first.country,

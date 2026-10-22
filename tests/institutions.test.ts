@@ -68,6 +68,19 @@ describe('applyInstitutionGroups', () => {
     expect(checkDigest(digest).filter((i) => i.severity === 'error')).toEqual([])
   })
 
+  it('names a group with a spelling printed in the PDF, never a new name', () => {
+    const digest = digestWithDuplicate()
+    const listed = listInstitutions(digest)
+    const members = [numberOf(listed, "Bayport Children's Hospital"), numberOf(listed, 'BCH')]
+    applyInstitutionGroups(digest, listed, {
+      groups: [{ name: 'Bayport Regional Pediatric Medical Center', type: 'childrens_hospital', members }],
+    })
+    const names = digest.institutions.map((i) => i.canonical_name)
+    expect(names).not.toContain('Bayport Regional Pediatric Medical Center')
+    // The full name is mentioned more often than "BCH", so it wins.
+    expect(names).toContain("Bayport Children's Hospital")
+  })
+
   it('keeps a name Claude left out as its own institution', () => {
     const digest = digestWithDuplicate()
     const listed = listInstitutions(digest)

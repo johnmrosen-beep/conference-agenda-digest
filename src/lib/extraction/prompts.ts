@@ -7,7 +7,7 @@ import type { OutlineOutput, OutlineSession } from './modelOutput'
 
 export const INSTITUTIONS_SYSTEM = `You clean up the list of institutions named in a medical conference program, so that each real organization is counted once.
 
-You get a numbered list of names, each already a distinct spelling. Group the numbers that refer to the same organization, and give each group its full official name in English.
+You get a numbered list of names, each already a distinct spelling. Group the numbers that refer to the same organization, and name each group by copying the clearest of its listed names exactly. Do not write a new name.
 
 Put names in the same group when they are:
 - abbreviations or variants of one name ("UAMS" and "University of Arkansas for Medical Sciences"; "CHOP" and "Children's Hospital of Philadelphia")

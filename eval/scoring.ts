@@ -145,7 +145,7 @@ function scoreFields(pairs: PresentationPair[]): Record<Field, FieldScore> {
 
 /** One wrong field on a matched presentation, for finding patterns in the errors. */
 export interface FieldError {
-  field: Field
+  field: Field | 'institutions'
   item: string
   expected: string
   got: string
@@ -166,6 +166,25 @@ function listFieldErrors(pairs: PresentationPair[]): FieldError[] {
           got: got ?? '(none)',
         })
       }
+    }
+  }
+  return errors
+}
+
+/** Matched presentations whose institutions differ from the golden ones (after alias matching). */
+function institutionErrors(pairs: PresentationPair[], key: (name: string) => string): FieldError[] {
+  const errors: FieldError[] = []
+  for (const { golden, predicted } of pairs) {
+    const expected = new Set(golden.institutions.map(key))
+    const got = new Set(predicted.institutions.map(key))
+    const same = expected.size === got.size && [...expected].every((k) => got.has(k))
+    if (!same) {
+      errors.push({
+        field: 'institutions',
+        item: `${golden.abstract_number ?? '-'} ${golden.title.slice(0, 60)}`,
+        expected: golden.institutions.join('; '),
+        got: predicted.institutions.join('; ') || '(none)',
+      })
     }
   }
   return errors
@@ -273,6 +292,6 @@ export function scoreSlice(golden: GoldenSlice, digest: Digest): SliceScore {
     sessionFields: sessions.fields,
     missed: missed.map((g) => `${g.abstract_number ?? '-'} ${g.title}`),
     extra: extra.map((p) => `${p.abstract_number ?? '-'} ${p.title}`),
-    fieldErrors: listFieldErrors(pairs),
+    fieldErrors: [...listFieldErrors(pairs), ...institutionErrors(pairs, instKey)],
   }
 }
