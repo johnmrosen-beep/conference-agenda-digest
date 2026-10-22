@@ -11,6 +11,7 @@ import {
 } from '../lib/digest/analysis'
 import type { Digest } from '../lib/extraction/schema'
 import PresentationSearch from './PresentationSearch'
+import AgendaPanel from './AgendaPanel'
 import RankedBars from './RankedBars'
 
 interface Props {
@@ -165,6 +166,13 @@ export default function DigestView({ digest }: Props) {
           />
         </div>
       </section>
+
+      <AgendaPanel
+        digest={digest}
+        picks={picks}
+        onRemove={toggle}
+        onClear={() => setPicks(new Set())}
+      />
 
       <div ref={searchRef}>
         <PresentationSearch
