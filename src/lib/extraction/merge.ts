@@ -480,7 +480,9 @@ export function recoverStartTimes(digest: Digest, pageTexts: ReadonlyMap<number,
     if (p.source_pages.length === 0) continue
 
     const page = p.source_pages[0]!
-    const lines = [page - 1, page].map((n) => pageTexts.get(n) ?? '').join('\n').split('\n')
+    // The page after is included too: Claude sometimes records an item's page as the one before.
+    // Searching by the item's own number or title keeps neighbouring times from being picked up.
+    const lines = [page - 1, page, page + 1].map((n) => pageTexts.get(n) ?? '').join('\n').split('\n')
     const titleStart = normalizeForMatch(p.title).split(' ').slice(0, 6).join(' ')
     const startsItem = (line: string) => {
       const withoutTime = line.replace(TIME_LINE, '$4')
