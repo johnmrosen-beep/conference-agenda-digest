@@ -19,14 +19,14 @@ Keep names in separate groups when they are:
 - different campuses or members of a university system ("University of California San Diego" and "University of California Irvine")
 - different organizations that merely share a word ("Children's Hospital Colorado" and "Children's Hospital Los Angeles")
 
-When you are not sure two names are the same organization, keep them apart: a wrong merge is worse than a missed one. Every number must appear in exactly one group; a name with no match is a group of its own.`
+When you are not sure two names are the same organization, keep them apart: a wrong merge is worse than a missed one. Only list groups of two or more names; leave out every name that has no match, since those stay as they are. A number may appear in at most one group.`
 
 export function institutionsUserMessage(listed: ListedInstitution[]): string {
   const lines = listed.map(({ number, institution, mentions }) => {
     const where = [institution.city, institution.country].filter(Boolean).join(', ')
     return `${number}. ${institution.canonical_name}${where ? ` (${where})` : ''} [${mentions}]`
   })
-  return `Institutions (with location when known, and [number of times named]):\n${lines.join('\n')}\n\nGroup the numbers that are the same organization.`
+  return `Institutions (with location when known, and [number of times named]):\n${lines.join('\n')}\n\nList the groups of two or more numbers that are the same organization.`
 }
 
 export const OUTLINE_SYSTEM = `You read the extracted text of a medical conference PDF (a program book or abstract book) and map its structure.
@@ -59,7 +59,7 @@ A presentation is any talk, keynote, panel, oral abstract, poster or video abstr
 - Choose up to 3 themes from the theme list provided, copying the labels exactly.
 - Mark withdrawn abstracts as withdrawn and highlighted ones (for example an asterisk explained as "Poster of Distinction") as highlighted.
 
-Only extract items that start on the pages you are asked to extract. A page marked as context is there only to help you understand where an item belongs. Do not include learning objectives, sponsor lists, or session headers as presentations. Never invent anything that is not in the text.`
+Only extract items that start on the pages you are asked to extract. A page marked as context is there only to help you understand where an item belongs, with one exception: an item that starts at the end of the context page and continues onto your pages must be extracted in full, because whoever read the context page could not see its end. If an item on your last page is cut off at the end of the text, extract what you can see. Do not include learning objectives, sponsor lists, or session headers as presentations. Never invent anything that is not in the text.`
 
 /** A compact view of the outline: just what a chunk needs to place its items. */
 function describeSessions(sessions: OutlineSession[]): string {
@@ -90,7 +90,9 @@ export function detailUserMessage(input: {
   const sessions = outline.sessions.filter((s) => s.last_page >= first - 1 && s.first_page <= last)
   const themes = outline.themes.map((t) => `- ${t.label}: ${t.description}`).join('\n')
   const context =
-    contextPages.length > 0 ? `Page ${contextPages.join(', ')} is context only; do not extract from it.` : ''
+    contextPages.length > 0
+      ? `Page ${contextPages.join(', ')} is context only: do not extract from it, except an item at its end that continues onto page ${first}.`
+      : ''
   return `Conference: ${outline.conference.name}
 
 Sessions on or near these pages:

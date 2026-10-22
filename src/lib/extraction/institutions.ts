@@ -20,7 +20,7 @@ export const InstitutionGroups = z.strictObject({
     z.strictObject({
       name: z.string().describe('The clearest of the listed names in this group, copied exactly'),
       type: InstitutionType,
-      members: z.array(z.number().int()).describe('List numbers of every name that is this organization'),
+      members: z.array(z.number().int()).describe('List numbers of the two or more names that are this organization'),
     }),
   ),
 })
@@ -134,7 +134,9 @@ export async function resolveInstitutions(
     system: INSTITUTIONS_SYSTEM,
     user: institutionsUserMessage(listed),
     schema: InstitutionGroups,
-    maxTokens: 32_000,
+    // Only multi-name groups come back, so the answer is short; the limit is generous for very
+    // large programs. (Returning every name, matched or not, overflowed 32k on a full program.)
+    maxTokens: 64_000,
     guard: options.guard,
     label: 'the institution list',
     signal: options.signal,

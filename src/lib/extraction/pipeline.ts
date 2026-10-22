@@ -308,6 +308,24 @@ export interface CostEstimate {
   highUsd: number
   /** A suggested spending limit: the high estimate plus a margin. */
   suggestedLimitUsd: number
+  /** How many groups of pages the detail pass will send. */
+  chunkCount: number
+}
+
+/**
+ * How long a run usually takes, in minutes, from measured runs: the outline takes about a minute,
+ * then page groups go four at a time, each round taking roughly 35-90 seconds depending on effort,
+ * then a minute or so for the institution and summary steps. A 329-page program book took 10-12
+ * minutes with Haiku at low effort. The real time depends on the API's speed that day.
+ */
+export function estimateMinutes(chunkCount: number, effort: Effort): { low: number; high: number } {
+  const perRound = { low: [35, 50], medium: [45, 65], high: [60, 90] }[effort]
+  const rounds = Math.ceil(chunkCount / 4)
+  const fixed = 120 // outline, institutions, summary
+  return {
+    low: Math.max(1, Math.round((fixed + rounds * perRound[0]!) / 60)),
+    high: Math.max(2, Math.round((fixed + rounds * perRound[1]!) / 60)),
+  }
 }
 
 /**
@@ -354,6 +372,7 @@ export async function estimateCost(
     lowUsd,
     highUsd,
     suggestedLimitUsd: Math.ceil(highUsd * 1.25 * 100) / 100,
+    chunkCount: chunks.length,
   }
 }
 
