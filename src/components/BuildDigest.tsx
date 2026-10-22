@@ -27,6 +27,7 @@ type RunState =
 const STAGE_LABEL: Record<ExtractionProgress['stage'], string> = {
   outline: 'Mapping sessions and themes',
   details: 'Reading presentations',
+  institutions: 'Merging institution names',
   checking: 'Checking the results',
 }
 

@@ -2,7 +2,32 @@
 // so these prompts focus on judgment: what counts as a session, how to read superscripts,
 // what to leave out. They are kept identical across chunks, so results are consistent.
 
+import type { ListedInstitution } from './institutions'
 import type { OutlineOutput, OutlineSession } from './modelOutput'
+
+export const INSTITUTIONS_SYSTEM = `You clean up the list of institutions named in a medical conference program, so that each real organization is counted once.
+
+You get a numbered list of names, each already a distinct spelling. Group the numbers that refer to the same organization, and give each group its full official name in English.
+
+Put names in the same group when they are:
+- abbreviations or variants of one name ("UAMS" and "University of Arkansas for Medical Sciences"; "CHOP" and "Children's Hospital of Philadelphia")
+- a university's own schools, colleges or departments ("Perelman School of Medicine" with "University of Pennsylvania"; "University of Miami Miller School of Medicine" with "University of Miami")
+- organizations that have formally merged into one (for example, Rady Children's Health and Children's Hospital of Orange County, CHOC)
+
+Keep names in separate groups when they are:
+- a hospital or health system and a university, even when closely affiliated ("Boston Children's Hospital" and "Harvard Medical School"; "Rady Children's Health" and "University of California San Diego")
+- different campuses or members of a university system ("University of California San Diego" and "University of California Irvine")
+- different organizations that merely share a word ("Children's Hospital Colorado" and "Children's Hospital Los Angeles")
+
+When you are not sure two names are the same organization, keep them apart: a wrong merge is worse than a missed one. Every number must appear in exactly one group; a name with no match is a group of its own.`
+
+export function institutionsUserMessage(listed: ListedInstitution[]): string {
+  const lines = listed.map(({ number, institution, mentions }) => {
+    const where = [institution.city, institution.country].filter(Boolean).join(', ')
+    return `${number}. ${institution.canonical_name}${where ? ` (${where})` : ''} [${mentions}]`
+  })
+  return `Institutions (with location when known, and [number of times named]):\n${lines.join('\n')}\n\nGroup the numbers that are the same organization.`
+}
 
 export const OUTLINE_SYSTEM = `You read the extracted text of a medical conference PDF (a program book or abstract book) and map its structure.
 
