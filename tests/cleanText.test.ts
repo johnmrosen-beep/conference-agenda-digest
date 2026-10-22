@@ -85,6 +85,28 @@ describe('buildLines', () => {
     expect(buildLines([a, b]).lines).toEqual(['First', 'Second'])
   })
 
+  it('puts lines in reading order when the PDF stores the bottom of the page first', () => {
+    // Modeled on a real program page: the lower half was stored before the session header.
+    const prizeTime = piece('9:30 AM Prize Name', 72, 300, { hasEOL: true })
+    const abstract = piece('304 AN ABSTRACT TITLE', 72, 286, { hasEOL: true })
+    const header = piece('Plenary Session', 72, 700, { hasEOL: true })
+    const welcome = piece('8:00 AM Introduction and Welcome', 72, 650, { hasEOL: true })
+    expect(buildLines([prizeTime, abstract, header, welcome]).lines).toEqual([
+      'Plenary Session',
+      '8:00 AM Introduction and Welcome',
+      '9:30 AM Prize Name',
+      '304 AN ABSTRACT TITLE',
+    ])
+  })
+
+  it('reads a row left to right, even when the right part is stored first', () => {
+    const time = piece('2:55 PM', 72, 500)
+    const title = piece('611 VALIDATION OF THE SCALE', 130, 500)
+    expect(buildLines([title, { ...time, hasEOL: false }]).lines).toEqual(['2:55 PM 611 VALIDATION OF THE SCALE'])
+    const separate = buildLines([{ ...title, hasEOL: true }, time]).lines
+    expect(separate).toEqual(['2:55 PM', '611 VALIDATION OF THE SCALE'])
+  })
+
   it('marks a wide gap between columns with two spaces', () => {
     const left = piece('Abbott', 72, 700)
     const right = piece('Kate Farms', 300, 700)
