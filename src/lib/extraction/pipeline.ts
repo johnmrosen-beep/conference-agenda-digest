@@ -38,6 +38,11 @@ export interface ExtractionOptions {
   effort: Effort
   /** The run stops before any request once this much has been spent. */
   spendLimitUsd: number
+  /**
+   * A guard shared by several runs (the evaluation uses one for its whole budget, so money
+   * spent by a run that fails partway still counts). When given, spendLimitUsd is ignored.
+   */
+  guard?: SpendGuard
   /** How many chunks are sent at the same time. */
   concurrency?: number
   signal?: AbortSignal
@@ -88,7 +93,11 @@ export async function runExtraction(
   const stopper = new AbortController()
   options.signal?.addEventListener('abort', () => stopper.abort())
   const signal = stopper.signal
-  const guard = new SpendGuard(options.spendLimitUsd)
+  const guard = options.guard ?? new SpendGuard(options.spendLimitUsd)
+  const spentBefore = guard.spentUsd
+  // The highest page number, not the number of pages: the evaluation runs on a few pages from
+  // the middle of a PDF (say 75-77) and keeps their real page numbers.
+  const pageCount = Math.max(0, ...doc.pages.map((p) => p.pageNumber))
   const calls: CallRecord[] = []
   let receivedChars = 0
   let inFlight = 0
@@ -128,7 +137,7 @@ export async function runExtraction(
   report('outline', 1, 1)
 
   // ---- 2. Details, a few chunks at a time
-  const skipPages = safeSkipPages(outline, doc.pages.length)
+  const skipPages = safeSkipPages(outline, pageCount)
   const queue: Chunk[] = makeChunks(doc.pages, { skipPages })
   const results: ChunkResult[] = []
   const failedChunks: FailedChunk[] = []
@@ -203,7 +212,7 @@ export async function runExtraction(
     source: {
       file_name: doc.fileName,
       sha256: doc.sha256,
-      page_count: doc.pages.length,
+      page_count: pageCount,
       doc_kind: outline.doc_kind,
       extracted_with: { model, effort, date: new Date().toISOString().slice(0, 10) },
     },
@@ -229,7 +238,7 @@ export async function runExtraction(
     issues,
     calls,
     failedChunks,
-    spentUsd: guard.spentUsd,
+    spentUsd: guard.spentUsd - spentBefore,
     seconds: (performance.now() - started) / 1000,
   }
 }
