@@ -451,3 +451,64 @@ export function recoverAbstractNumbers(digest: Digest, pageTexts: ReadonlyMap<nu
   }
   return recovered
 }
+
+/** "2:28 PM" -> "14:28". Returns null for anything that isn't a 12-hour clock time. */
+export function to24Hour(hours: string, minutes: string, meridiem: string): string | null {
+  let h = Number(hours)
+  if (h < 1 || h > 12 || Number(minutes) > 59) return null
+  const pm = meridiem.toUpperCase() === 'PM'
+  if (pm && h !== 12) h += 12
+  if (!pm && h === 12) h = 0
+  return `${String(h).padStart(2, '0')}:${minutes}`
+}
+
+const TIME_LINE = /^\s*(\d{1,2}):(\d{2})\s*([AP]M)\b(.*)$/i
+
+/**
+ * Fills in start times Claude left out. Some sessions print each talk's time on its own line just
+ * above it ("2:28 PM", then "952 RISK STRATIFICATION..."); when Claude misses that, the talk only
+ * has its session's start time. For each presentation still showing its session's start, we look
+ * a few lines above its number (or the start of its title) for a printed time, and use it if it
+ * falls within the session. Evaluation found this pattern behind most of Haiku's wrong times.
+ */
+export function recoverStartTimes(digest: Digest, pageTexts: ReadonlyMap<number, string>): number {
+  const sessionsById = new Map(digest.sessions.map((s) => [s.id, s]))
+  let recovered = 0
+  for (const p of digest.presentations) {
+    const session = p.session_id ? sessionsById.get(p.session_id) : undefined
+    if (!session?.start_time || !session.end_time || p.start_time !== session.start_time) continue
+    if (p.source_pages.length === 0) continue
+
+    const page = p.source_pages[0]!
+    // The page after is included too: Claude sometimes records an item's page as the one before.
+    // Searching by the item's own number or title keeps neighbouring times from being picked up.
+    const lines = [page - 1, page, page + 1].map((n) => pageTexts.get(n) ?? '').join('\n').split('\n')
+    const titleStart = normalizeForMatch(p.title).split(' ').slice(0, 6).join(' ')
+    const startsItem = (line: string) => {
+      const withoutTime = line.replace(TIME_LINE, '$4')
+      const numbered = withoutTime.match(/^\s*(\d{1,4})\*?\s/)
+      if (p.abstract_number !== null && numbered) return numbered[1] === p.abstract_number
+      return titleStart.split(' ').length >= 3 && normalizeForMatch(withoutTime).startsWith(titleStart)
+    }
+
+    const at = lines.findIndex(startsItem)
+    if (at < 0) continue
+    // The time is on the item's own line, or on one of the few lines above it (award names such
+    // as "Young Faculty Investigator Award" can sit in between).
+    for (let i = at; i >= Math.max(0, at - 4); i--) {
+      const match = lines[i]!.match(TIME_LINE)
+      if (!match) continue
+      if (/^\s*[-–]/.test(match[4]!)) break // "5:00 PM - 7:00 PM" is a session's hours, not a talk time
+      const time = to24Hour(match[1]!, match[2]!, match[3]!)
+      // Equal to the session start means nothing to fix (and posters keep their session hours).
+      if (time && time > session.start_time && time < session.end_time) {
+        p.start_time = time
+        p.end_time = null // the session's end time was a stand-in; the talk's own end isn't printed
+        p.time_inferred = p.date === session.date && p.room === session.room
+        recovered++
+      }
+      break
+    }
+  }
+  return recovered
+}

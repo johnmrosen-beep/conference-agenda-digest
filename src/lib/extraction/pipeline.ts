@@ -19,7 +19,13 @@ import {
   SpendGuard,
   type CallRecord,
 } from './claude'
-import { mergeDigest, recoverAbstractNumbers, safeSkipPages, type ChunkResult } from './merge'
+import {
+  mergeDigest,
+  recoverAbstractNumbers,
+  recoverStartTimes,
+  safeSkipPages,
+  type ChunkResult,
+} from './merge'
 import { ChunkOutput, OutlineOutput } from './modelOutput'
 import { costOfCall, type Effort, type ModelId } from './pricing'
 import { DETAIL_SYSTEM, OUTLINE_SYSTEM, detailUserMessage, outlineUserMessage } from './prompts'
@@ -223,6 +229,7 @@ export async function runExtraction(
   // ---- 4. Check, and record every problem in the digest itself
   const pageTexts = new Map(doc.pages.map((p) => [p.pageNumber, p.text]))
   recoverAbstractNumbers(digest, pageTexts)
+  recoverStartTimes(digest, pageTexts)
   const issues = checkDigest(digest, { pageTexts })
   for (const failed of failedChunks) {
     digest.warnings.push({ code: 'CHUNK_FAILED', message: failed.message, ref_id: null, pages: failed.pages })

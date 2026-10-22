@@ -13,6 +13,7 @@ Return:
 - Every scheduled session: plenaries, symposia, concurrent sessions, oral abstract sessions, poster sessions, workshops, meet-the-professor sessions, industry symposia, business meetings, socials. Use the title as printed, its date, start and end time (24-hour HH:MM), room, moderators, and the page range it covers. A poster session's range runs until the next session header, even across many pages.
 - Mark sponsor and industry events, business meetings, socials, meals and breaks as not scientific.
 - Leave out committee, board and special-interest-group meetings, registration hours, and speaker-ready-room hours. They are not sessions anyone would add to an agenda.
+- Topic headings inside a session (often ALL CAPS, such as "INFLAMMATORY BOWEL DISEASE" between groups of posters) are categories, not sessions. Use them as themes instead.
 - A list of 8 to 15 themes covering the scientific content. Reuse the conference's own category headings where it has them.
 - Pages with no sessions or presentations at all (covers, sponsor lists, exhibitor lists, credit statements, indexes), so they can be skipped.
 

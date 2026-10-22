@@ -104,7 +104,8 @@ function tidy(text: string): string {
 function renderLine(line: Line): string {
   let out = ''
   let prev: Part | null = null
-  for (const part of line.parts) {
+  // Left to right, whatever order the PDF stored the pieces in.
+  for (const part of [...line.parts].sort((a, b) => a.x - b.x)) {
     const text = part.superscript ? `^${part.text.replace(/\s+/g, '')}` : tidy(part.text)
     if (prev && out && !/\s$/.test(out) && !/^\s/.test(text) && !part.superscript) {
       const gap = part.x - prev.endX
@@ -119,16 +120,44 @@ function renderLine(line: Line): string {
   return out.replace(/ {3,}/g, '  ').replace(/ � /g, ' – ').trim()
 }
 
-/** Rebuilds the lines of one page from its text pieces, in the order the PDF stores them. */
+interface PlacedLine {
+  text: string
+  y: number
+  x: number
+}
+
+/** Lines whose baselines are this close (in points) count as the same row of the page. */
+const SAME_ROW = 2
+
+/**
+ * Puts lines in reading order: top of the page to the bottom, and left to right within a row.
+ * Some PDFs store their text in a different order (one program book stored the bottom half of
+ * a page before the top half), which scrambled what Claude read and hid a talk's printed time.
+ */
+function readingOrder(placed: PlacedLine[]): string[] {
+  return placed
+    .map((line, index) => ({ ...line, index }))
+    .sort((a, b) => {
+      if (Math.abs(a.y - b.y) > SAME_ROW) return b.y - a.y // PDF y grows upward
+      return a.x - b.x || a.index - b.index
+    })
+    .map((line) => line.text)
+}
+
+/**
+ * Rebuilds the lines of one page from its text pieces, then puts them in reading order.
+ * Lines are assembled in the order the PDF stores the pieces (which keeps superscripts with
+ * their words), and only then sorted by position on the page.
+ */
 export function buildLines(items: RawTextItem[]): { lines: string[]; rotatedDropped: number } {
-  const lines: string[] = []
+  const placed: PlacedLine[] = []
   let rotatedDropped = 0
   let line: Line | null = null
 
   const finish = () => {
     if (line) {
       const text = renderLine(line)
-      if (text) lines.push(text)
+      if (text) placed.push({ text, y: line.y, x: line.parts[0]?.x ?? 0 })
     }
     line = null
   }
@@ -189,7 +218,7 @@ export function buildLines(items: RawTextItem[]): { lines: string[]; rotatedDrop
     if (item.hasEOL) finish()
   }
   finish()
-  return { lines, rotatedDropped }
+  return { lines: readingOrder(placed), rotatedDropped }
 }
 
 /** Rejoins a lowercase word that was split across two lines with a hyphen. */
