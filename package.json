@@ -14,7 +14,8 @@
     "test": "vitest run",
     "eval:run": "tsx eval/run.ts",
     "eval:report": "tsx eval/report.ts",
-    "eval:remerge": "tsx eval/remerge.ts"
+    "eval:remerge": "tsx eval/remerge.ts",
+    "eval:why": "tsx eval/why.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
