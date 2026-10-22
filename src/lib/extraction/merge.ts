@@ -381,6 +381,17 @@ export function mergeDigest(input: MergeInput): Digest {
       }
     }
   }
+  // An item cut off at the end of one group of pages can arrive twice: once with only the start
+  // of its title and no authors, and once complete from the next group. Keep the complete one.
+  const complete = presentations.filter((p) => p.authors.length > 0)
+  const isFragment = (p: Presentation) => {
+    if (p.authors.length > 0 || p.withdrawn) return false
+    const start = normalizeForMatch(p.title)
+    if (start.split(' ').length < 4) return false
+    return complete.some((other) => normalizeForMatch(other.title).startsWith(start))
+  }
+  const kept = presentations.filter((p) => !isFragment(p))
+  presentations.splice(0, presentations.length, ...kept)
   presentations.forEach((p, i) => (p.id = `pres-${i + 1}`))
 
   if (presentations.length === 0) {

@@ -3,12 +3,14 @@ import type { CleanPage } from '../lib/pdf/cleanText'
 import { createClient } from '../lib/extraction/claude'
 import {
   estimateCost,
+  estimateMinutes,
   runExtraction,
   type CostEstimate,
   type ExtractionProgress,
   type ExtractionResult,
 } from '../lib/extraction/pipeline'
 import { MODELS, formatUsd, type Effort, type ModelId } from '../lib/extraction/pricing'
+import DigestView from './DigestView'
 
 interface Props {
   file: File
@@ -28,12 +30,44 @@ const STAGE_LABEL: Record<ExtractionProgress['stage'], string> = {
   outline: 'Mapping sessions and themes',
   details: 'Reading presentations',
   institutions: 'Merging institution names',
+  summary: 'Writing the overview',
   checking: 'Checking the results',
 }
 
 async function fingerprint(file: File): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** 754 seconds -> "12:34" */
+function clock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+function minutesText({ low, high }: { low: number; high: number }): string {
+  return low === high ? `about ${low} minutes` : `about ${low}–${high} minutes`
+}
+
+/**
+ * "Elapsed 4:12 · about 7 minutes left". Before page groups have a pace, it falls back to the
+ * estimate made from the page count; once a few groups are done, it projects from their pace.
+ */
+function timeLine(
+  progress: ExtractionProgress | null,
+  now: number,
+  timing: { started: number; detailsStarted: number | null; planned: { low: number; high: number } | null },
+): string {
+  const elapsed = `Elapsed ${clock((now - timing.started) / 1000)}`
+  if (progress?.stage === 'details' && timing.detailsStarted !== null && progress.done >= 2) {
+    const perGroup = (now - timing.detailsStarted) / 1000 / progress.done
+    const left = perGroup * (progress.total - progress.done) + 90 // plus the final steps
+    return `${elapsed} · about ${Math.max(1, Math.ceil(left / 60))} minutes left`
+  }
+  if (progress && ['institutions', 'summary', 'checking'].includes(progress.stage)) {
+    return `${elapsed} · finishing up, about a minute left`
+  }
+  return timing.planned ? `${elapsed} · expected total ${minutesText(timing.planned)}` : elapsed
 }
 
 function downloadJson(data: unknown, fileName: string) {
@@ -56,6 +90,12 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
   const running = useRef<AbortController | null>(null)
   // When the last piece of an answer arrived, to show "waiting" vs "writing".
   const lastActivity = useRef({ chars: 0, at: 0 })
+  // For the elapsed and remaining time: when the run began, and when page groups started.
+  const timing = useRef<{ started: number; detailsStarted: number | null; planned: { low: number; high: number } | null }>({
+    started: 0,
+    detailsStarted: null,
+    planned: null,
+  })
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => () => running.current?.abort(), [])
@@ -89,6 +129,11 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
     const controller = new AbortController()
     running.current = controller
     lastActivity.current = { chars: 0, at: Date.now() }
+    timing.current = {
+      started: Date.now(),
+      detailsStarted: null,
+      planned: state.step === 'estimated' ? estimateMinutes(state.estimate.chunkCount, effort) : null,
+    }
     setState({ step: 'running', progress: null })
     try {
       const result = await runExtraction(
@@ -102,6 +147,9 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
           onProgress: (progress) => {
             if (progress.receivedChars !== lastActivity.current.chars) {
               lastActivity.current = { chars: progress.receivedChars, at: Date.now() }
+            }
+            if (progress.stage === 'details' && timing.current.detailsStarted === null) {
+              timing.current.detailsStarted = Date.now()
             }
             setState({ step: 'running', progress })
           },
@@ -174,7 +222,12 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
       {state.step === 'estimated' && (
         <>
           <p className="status">
-            Estimated cost: {formatUsd(state.estimate.lowUsd)} to {formatUsd(state.estimate.highUsd)}
+            Estimated cost: {formatUsd(state.estimate.lowUsd)} to {formatUsd(state.estimate.highUsd)} · estimated time:{' '}
+            {minutesText(estimateMinutes(state.estimate.chunkCount, effort))}
+          </p>
+          <p className="hint">
+            You don't need to watch it. Switch to other work and come back; just keep this browser tab open (closing or
+            reloading it stops the run).
           </p>
           <label className="field" htmlFor="spend-limit">
             Spending limit (US dollars). The run stops before any request once this is reached.
@@ -202,6 +255,7 @@ export default function BuildDigest({ file, pages, apiKey }: Props) {
               : 'Starting…'}
           </p>
           <progress max={state.progress?.total || 1} value={state.progress?.done ?? 0} />
+          <p className="status">{timeLine(state.progress, now, timing.current)}</p>
           {state.progress && (
             <p className="hint">
               {state.progress.inFlight} {state.progress.inFlight === 1 ? 'request' : 'requests'} running ·{' '}
@@ -286,7 +340,7 @@ function BuildResult({ result }: { result: ExtractionResult }) {
           Download Claude's raw answers
         </button>
       </div>
-      <p className="hint">Summary, charts, search and agenda export for this digest arrive in the next milestones.</p>
+      <DigestView digest={digest} />
     </div>
   )
 }

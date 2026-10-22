@@ -27,6 +27,7 @@ import {
   type ChunkResult,
 } from './merge'
 import { resolveInstitutions, type InstitutionGroups } from './institutions'
+import { summarizeDigest, type SummaryOutput } from './summary'
 import { ChunkOutput, OutlineOutput } from './modelOutput'
 import { costOfCall, type Effort, type ModelId } from './pricing'
 import { DETAIL_SYSTEM, OUTLINE_SYSTEM, detailUserMessage, outlineUserMessage } from './prompts'
@@ -52,6 +53,8 @@ export interface ExtractionOptions {
   guard?: SpendGuard
   /** Merge institution names with one extra Claude call (default true; the evaluation can turn it off to compare). */
   resolveInstitutions?: boolean
+  /** Write the overview paragraph and highlights with one extra Claude call (default true). */
+  summarize?: boolean
   /** How many chunks are sent at the same time. */
   concurrency?: number
   signal?: AbortSignal
@@ -59,7 +62,7 @@ export interface ExtractionOptions {
 }
 
 export interface ExtractionProgress {
-  stage: 'outline' | 'details' | 'institutions' | 'checking'
+  stage: 'outline' | 'details' | 'institutions' | 'summary' | 'checking'
   done: number
   total: number
   spentUsd: number
@@ -80,7 +83,12 @@ export interface ExtractionResult {
    * Claude's answers before merging. Saving them lets the merge be re-run and debugged, and
    * lets the evaluation re-score a run, without paying for the API calls again.
    */
-  raw: { outline: OutlineOutput; chunks: ChunkResult[]; institutionGroups?: InstitutionGroups | null }
+  raw: {
+    outline: OutlineOutput
+    chunks: ChunkResult[]
+    institutionGroups?: InstitutionGroups | null
+    summary?: SummaryOutput | null
+  }
   issues: ValidationIssue[]
   calls: CallRecord[]
   failedChunks: FailedChunk[]
@@ -252,7 +260,25 @@ export async function runExtraction(
     report('institutions', 1, 1)
   }
 
-  // ---- 5. Check, and record every problem in the digest itself
+  // ---- 5. Write the overview paragraph and highlights (one small call)
+  let summary: SummaryOutput | null = null
+  if (options.summarize !== false && digest.presentations.length > 0) {
+    report('summary', 0, 1)
+    inFlight = 1
+    try {
+      const written = await summarizeDigest(digest, { client, model, effort, guard, signal, onText })
+      calls.push(written.record)
+      summary = written.answer
+    } catch (error) {
+      if (!(error instanceof CallFailed)) throw error
+      if (error.record) calls.push(error.record)
+      digest.warnings.push({ code: 'SUMMARY_FAILED', message: error.message, ref_id: null, pages: [] })
+    }
+    inFlight = 0
+    report('summary', 1, 1)
+  }
+
+  // ---- 6. Check, and record every problem in the digest itself
   report('checking', 0, 1)
   const issues = checkDigest(digest, { pageTexts })
   for (const failed of failedChunks) {
@@ -265,7 +291,7 @@ export async function runExtraction(
 
   return {
     digest,
-    raw: { outline, chunks: results, institutionGroups },
+    raw: { outline, chunks: results, institutionGroups, summary },
     issues,
     calls,
     failedChunks,
@@ -282,6 +308,24 @@ export interface CostEstimate {
   highUsd: number
   /** A suggested spending limit: the high estimate plus a margin. */
   suggestedLimitUsd: number
+  /** How many groups of pages the detail pass will send. */
+  chunkCount: number
+}
+
+/**
+ * How long a run usually takes, in minutes, from measured runs: the outline takes about a minute,
+ * then page groups go four at a time, each round taking roughly 35-90 seconds depending on effort,
+ * then a minute or so for the institution and summary steps. A 329-page program book took 10-12
+ * minutes with Haiku at low effort. The real time depends on the API's speed that day.
+ */
+export function estimateMinutes(chunkCount: number, effort: Effort): { low: number; high: number } {
+  const perRound = { low: [35, 50], medium: [45, 65], high: [60, 90] }[effort]
+  const rounds = Math.ceil(chunkCount / 4)
+  const fixed = 120 // outline, institutions, summary
+  return {
+    low: Math.max(1, Math.round((fixed + rounds * perRound[0]!) / 60)),
+    high: Math.max(2, Math.round((fixed + rounds * perRound[1]!) / 60)),
+  }
 }
 
 /**
@@ -328,6 +372,7 @@ export async function estimateCost(
     lowUsd,
     highUsd,
     suggestedLimitUsd: Math.ceil(highUsd * 1.25 * 100) / 100,
+    chunkCount: chunks.length,
   }
 }
 

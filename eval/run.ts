@@ -132,6 +132,7 @@ async function main() {
               effort,
               spendLimitUsd: maxDollars,
               guard,
+              summarize: false, // the overview paragraph isn't scored, so don't pay for it here
             })
             await writeFile(
               join(outDir, `${name}.json`),

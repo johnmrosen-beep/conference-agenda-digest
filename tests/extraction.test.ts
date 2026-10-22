@@ -22,6 +22,7 @@ import {
   type ChunkPresentation,
   type OutlineOutput as Outline,
 } from '../src/lib/extraction/modelOutput'
+import { estimateMinutes } from '../src/lib/extraction/pipeline'
 import { costOfCall } from '../src/lib/extraction/pricing'
 import { checkDigest, parseDigest } from '../src/lib/extraction/validate'
 
@@ -70,6 +71,19 @@ describe('parseAnswer', () => {
 
   it('returns null for JSON in the wrong shape', () => {
     expect(parseAnswer('{"items":[]}', ChunkOutput)).toBeNull()
+  })
+})
+
+describe('estimateMinutes', () => {
+  it('matches the measured time for a full program book', () => {
+    // The 329-page NASPGHAN book made about 47 page groups and took 10-12 minutes at low effort.
+    const { low, high } = estimateMinutes(47, 'low')
+    expect(low).toBeLessThanOrEqual(10)
+    expect(high).toBeGreaterThanOrEqual(12)
+  })
+
+  it('expects more time at higher effort', () => {
+    expect(estimateMinutes(47, 'high').high).toBeGreaterThan(estimateMinutes(47, 'low').high)
   })
 })
 
@@ -285,6 +299,25 @@ describe('mergeDigest with imperfect answers', () => {
     expect(digest.presentations).toHaveLength(1)
     expect(digest.presentations[0]!.kind).toBe('poster')
     expect(digest.presentations[0]!.session_id).toBe('session-1')
+  })
+
+  it('drops a cut-off copy of a poster when the next group of pages has it complete', () => {
+    const digest = mergeDigest({
+      source: { file_name: 'example.pdf', sha256: null, page_count: 3, doc_kind: 'program', extracted_with: null },
+      outline,
+      chunks: [
+        {
+          chunk: { index: 0, extractPages: [2], contextPages: [], text: '' },
+          // Seen at the bottom of page 2: half a title, no number, no authors yet.
+          presentations: [poster({ abstract_number: null, title: 'SEVERE HERPES SIMPLEX VIRUS ESOPHAGITIS IN AN', people: [], affiliations: [] })],
+        },
+        {
+          chunk: { index: 1, extractPages: [3], contextPages: [2], text: '' },
+          presentations: [poster({ page: 2, abstract_number: '95', title: 'SEVERE HERPES SIMPLEX VIRUS ESOPHAGITIS IN AN IMMUNOCOMPETENT CHILD' })],
+        },
+      ],
+    })
+    expect(digest.presentations.map((p) => [p.abstract_number, p.authors.length])).toEqual([['95', 2]])
   })
 })
 
