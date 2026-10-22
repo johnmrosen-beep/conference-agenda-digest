@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ApiKeyPanel from './components/ApiKeyPanel'
 import DemoEntry from './components/DemoEntry'
+import SavedDigests from './components/SavedDigests'
 import SignalRule from './components/SignalRule'
 import Upload from './components/Upload'
 import { browserStores, loadKey, type SavedKey } from './lib/apiKeyStore'
@@ -39,6 +40,7 @@ export default function App() {
         <main className="steps">
           <ApiKeyPanel saved={savedKey} onChange={setSavedKey} />
           <Upload apiKey={savedKey?.key ?? null} />
+          <SavedDigests />
           <DemoEntry />
         </main>
       </div>
