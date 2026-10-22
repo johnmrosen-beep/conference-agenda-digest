@@ -683,10 +683,16 @@ select {
   .result {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .result-when {
+  .result .result-when,
+  .result .result-body {
     grid-column: 2;
   }
-  .result-body {
+  /* Agenda rows: time beside the title, the Remove link underneath. */
+  .agenda li {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .agenda li .link-button {
     grid-column: 2;
+    justify-self: start;
   }
 }

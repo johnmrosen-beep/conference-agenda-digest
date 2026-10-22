@@ -13,8 +13,8 @@ interface Props {
   onChange: (saved: SavedKey | null) => void
 }
 
-// Lets the visitor paste their own Anthropic API key. No API calls happen yet:
-// this milestone only stores and forgets the key.
+// Lets the visitor paste their own Anthropic API key, which pays for building digests.
+// It is kept for this tab only unless they choose to remember it, and only sent to Anthropic.
 export default function ApiKeyPanel({ saved, onChange }: Props) {
   const [draft, setDraft] = useState('')
   const [remember, setRemember] = useState(false)
@@ -53,6 +53,11 @@ export default function ApiKeyPanel({ saved, onChange }: Props) {
             Key {maskKey(saved.key)} saved{' '}
             {saved.remembered ? 'on this device' : 'for this tab only'}.
           </p>
+          {saved.remembered && (
+            <p className="hint">
+              On a shared computer, click Forget key when you’re done.
+            </p>
+          )}
           <div className="btn-row">
             <button type="button" className="btn secondary" onClick={handleForget}>
               Forget key
@@ -65,7 +70,11 @@ export default function ApiKeyPanel({ saved, onChange }: Props) {
             The app runs entirely in your browser and sends your key only to Anthropic
             (api.anthropic.com). Usage is billed to your Anthropic Console account; Claude.ai
             subscriptions don’t include API use. A dedicated key with a low spending limit is
-            safest.
+            safest, and you can delete it any time in the{' '}
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
+              Anthropic Console
+            </a>
+            . Building a typical program book costs well under a dollar.
           </p>
           <label className="field" htmlFor="api-key">
             Anthropic API key
@@ -86,8 +95,8 @@ export default function ApiKeyPanel({ saved, onChange }: Props) {
               onChange={(e) => setRemember(e.target.checked)}
             />
             <span>
-              Remember on this device. Leave unchecked to keep the key only until you close
-              this tab.
+              Remember on this device. Don’t use this on a shared or public computer. Leave it
+              unchecked to keep the key only until you close this tab.
             </span>
           </label>
           {error && (
