@@ -116,9 +116,14 @@ async function main() {
       })
       repeatScores.push(combine(scores, repeatRuns))
       for (const s of scores) {
-        if (s.missed.length + s.extra.length === 0) continue
+        if (s.missed.length + s.extra.length + s.fieldErrors.length === 0) continue
         details.push(`### ${MODELS[model].label}, effort ${effort}, repeat ${repeat}, slice ${s.slice}`)
-        details.push(...s.missed.map((t) => `- missed: ${t}`), ...s.extra.map((t) => `- extra: ${t}`), '')
+        details.push(
+          ...s.missed.map((t) => `- missed: ${t}`),
+          ...s.extra.map((t) => `- extra: ${t}`),
+          ...s.fieldErrors.map((e) => `- wrong ${e.field}: expected "${e.expected}", got "${e.got}" (${e.item})`),
+          '',
+        )
       }
     }
     results.push({ model, effort, repeats: repeatScores, details })

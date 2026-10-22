@@ -143,6 +143,34 @@ function scoreFields(pairs: PresentationPair[]): Record<Field, FieldScore> {
   return result
 }
 
+/** One wrong field on a matched presentation, for finding patterns in the errors. */
+export interface FieldError {
+  field: Field
+  item: string
+  expected: string
+  got: string
+}
+
+function listFieldErrors(pairs: PresentationPair[]): FieldError[] {
+  const errors: FieldError[] = []
+  for (const { golden, predicted } of pairs) {
+    for (const field of FIELDS) {
+      const expected = fieldValue(golden, field)
+      if (expected === null) continue
+      const got = fieldValue(predicted, field)
+      if (got !== expected) {
+        errors.push({
+          field,
+          item: `${golden.abstract_number ?? '-'} ${golden.title.slice(0, 60)}`,
+          expected,
+          got: got ?? '(none)',
+        })
+      }
+    }
+  }
+  return errors
+}
+
 /** Compares two lists of names (or institutions) as sets, after normalizing each one. */
 function compareSets(golden: string[], predicted: string[], key: (s: string) => string): PRF {
   const g = new Set(golden.map(key).filter(Boolean))
@@ -207,6 +235,8 @@ export interface SliceScore {
   /** Titles of golden items the model missed, and of items it reported that aren't golden. */
   missed: string[]
   extra: string[]
+  /** Every wrong field on a matched presentation (private: includes titles). */
+  fieldErrors: FieldError[]
 }
 
 export function scoreSlice(golden: GoldenSlice, digest: Digest): SliceScore {
@@ -243,5 +273,6 @@ export function scoreSlice(golden: GoldenSlice, digest: Digest): SliceScore {
     sessionFields: sessions.fields,
     missed: missed.map((g) => `${g.abstract_number ?? '-'} ${g.title}`),
     extra: extra.map((p) => `${p.abstract_number ?? '-'} ${p.title}`),
+    fieldErrors: listFieldErrors(pairs),
   }
 }
